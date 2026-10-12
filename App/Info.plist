@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>en</string>
+	<key>CFBundleLocalizations</key><array><string>en</string><string>de</string></array>
+	<key>CFBundleExecutable</key><string>Pickup</string>
+	<key>CFBundleIdentifier</key><string>dev.eiken.pickup</string>
+	<key>CFBundleIconFile</key><string>Pickup</string>
+	<key>CFBundleIconName</key><string>Pickup</string>
+	<key>CFBundleName</key><string>Pickup</string>
+	<key>CFBundleDisplayName</key><string>Pickup</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>0.1.0</string>
+	<key>CFBundleVersion</key><string>0.1.0</string>
+	<key>LSMinimumSystemVersion</key><string>26.0</string>
+	<key>LSUIElement</key><true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key><string>Telephone number</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>tel</string><string>callto</string></array>
+			<key>CFBundleTypeRole</key><string>Viewer</string>
+		</dict>
+	</array>
+	<key>NSPrincipalClass</key><string>NSApplication</string>
+	<key>NSHighResolutionCapable</key><true/>
+	<key>NSBluetoothAlwaysUsageDescription</key><string>Pickup uses Bluetooth to connect to your Android phone and control its calls.</string>
+	<key>NSContactsUsageDescription</key><string>Pickup looks up the names of callers in your contacts.</string>
+</dict>
+</plist>

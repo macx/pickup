@@ -1,0 +1,108 @@
+# SwiftLint configuration for Pickup (docs/TESTING.md, "Static analysis and hygiene").
+# Not installed on the dev machine yet: brew install swiftlint. scripts/verify.sh runs it when present
+# (with --strict as an error). The thresholds below are deliberately generous for the existing code;
+# tighten them once the first real run is clean.
+
+included:
+  - Sources
+  - App/Sources
+
+excluded:
+  - .build
+  - App/.build
+  - spikes          # throwaway hardware spikes: print() and force unwraps are fine there
+  - Tests
+  - App/Tests
+
+opt_in_rules:
+  - force_unwrapping          # no `!` outside tests (explicit exceptions need `// swiftlint:disable:next force_unwrapping` plus a reason)
+  - implicitly_unwrapped_optional
+  - empty_count
+  - empty_string
+  - first_where
+  - contains_over_first_not_nil
+  - sorted_first_last
+  - unneeded_parentheses_in_closure_argument
+  - redundant_nil_coalescing
+  - overridden_super_call
+  - private_outlet
+  - unavailable_function
+  - vertical_whitespace_closing_braces
+  - discouraged_object_literal
+  - fatal_error_message
+  - toggle_bool
+  - modifier_order
+
+disabled_rules:
+  - blanket_disable_command   # file-wide disables are used only for the IOBluetooth delegate signatures
+  - trailing_comma            # the code base uses trailing commas in multi-line literals
+  - todo                      # TODOs are tracked as GitHub issues
+  - nesting                   # small nested helper types are used on purpose
+  - implicit_optional_initialization  # explicit `= nil` is the house style
+  - void_function_in_ternary
+  - statement_position
+  - is_disjoint
+
+# Hard rules: a violation fails the gate.
+force_try: error
+force_cast: error
+force_unwrapping: error
+implicitly_unwrapped_optional: error
+fatal_error_message: error
+
+line_length:
+  warning: 240
+  error: 300
+  ignores_comments: true
+  ignores_urls: true
+  ignores_interpolated_strings: true
+
+file_length:
+  warning: 900
+  error: 1500
+  ignore_comment_only_lines: true
+
+type_body_length:
+  warning: 700
+  error: 1100
+
+function_body_length:
+  warning: 100
+  error: 200
+
+function_parameter_count:
+  warning: 8
+  error: 12
+
+cyclomatic_complexity:
+  warning: 25
+  error: 45
+
+large_tuple:
+  warning: 4
+  error: 6
+
+identifier_name:
+  min_length:
+    warning: 1
+  max_length:
+    warning: 50
+  excluded: [id, x, y, i, n, to, ok]
+
+type_name:
+  max_length:
+    warning: 50
+
+custom_rules:
+  no_print_or_nslog:
+    name: "No print/NSLog in production code"
+    regex: '(^|[^A-Za-z_.])(print|NSLog|debugPrint|dump)\('
+    message: "Use DiagnosticLogging (numbers and names are redacted there); never print or NSLog."
+    severity: error
+    excluded: ".*Tests.*"
+  no_direct_unified_log:
+    name: "Unified log only through DiagnosticLog"
+    regex: '(os_log\(|Logger\(subsystem)'
+    message: "Write through DiagnosticLogging so phone numbers are redacted first."
+    severity: error
+    excluded: ".*DiagnosticLog\\.swift"

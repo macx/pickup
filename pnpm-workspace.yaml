@@ -1,0 +1,10 @@
+# pnpm settings for the release-only tooling (release-it). Not a workspace: there are no packages to list.
+# Supply-chain hardening (https://pnpm.io/settings):
+minimumReleaseAge: 20160      # minutes (14 days): never resolve a version younger than two weeks
+trustPolicy: no-downgrade     # fail if a package's publishing trust level drops (e.g. provenance disappears)
+blockExoticSubdeps: true      # only direct dependencies may come from git/tarball URLs (we have none)
+strictDepBuilds: true         # unreviewed dependency build scripts fail the install ...
+allowBuilds: {}               # ... and no dependency is allowed to run lifecycle scripts
+engineStrict: true            # refuse an unsupported Node version
+verifyDepsBeforeRun: error    # `pnpm run` fails if node_modules does not match the lockfile
+savePrefix: ''                # `pnpm add` pins exact versions

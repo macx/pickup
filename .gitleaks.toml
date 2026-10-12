@@ -1,0 +1,17 @@
+# gitleaks configuration (docs/TESTING.md). Default rules plus the project's own.
+title = "Pickup gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "pickup-real-bluetooth-address"
+description = "A full Bluetooth address of the maintainer's phone (OUI c0-1c-6a). Use invented addresses such as aa-bb-cc-dd-ee-ff."
+regex = '''(?i)c0[-:]1c[-:]6a[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}'''
+tags = ["pickup", "personal-data"]
+
+[allowlist]
+description = "Build output and recordings are not committed anyway."
+paths = [
+  '''(^|/)\.build/''',
+]

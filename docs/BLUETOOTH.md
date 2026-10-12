@@ -1,0 +1,27 @@
+# Bluetooth rules for Pickup
+
+Lessons learned about `IOBluetoothHandsFreeDevice` that every change in `Sources/PickupBluetooth` must respect.
+
+## IOBluetooth rules (phase 1, learned from a crash)
+On 2026-10-11 the app crashed when the Pixel reconnected after Bluetooth was toggled: stack overflow in `-[IOBluetoothHandsFreeDevice sendPendingATCommand]` (crash report `Pickup-2026-10-11-141437.ips`). The log showed two SLC set-ups interleaved on one RFCOMM channel (`AT+BRSF=116` written twice, every reply arriving twice, a second `ERROR` for `AT+CNMI`).
+
+Root cause: `-[IOBluetoothHandsFreeDevice initWithDevice:delegate:]` registers a listener for incoming connections that stays active as long as the object lives. After a drop, the transport created a new object and kept the old one alive (it must never be freed while IOBluetooth may still point to it). When the Pixel reconnected on its own, both objects accepted the connection, ran their SLC set-up on the same channel and consumed each other's replies until IOBluetooth's command queue recursed.
+
+Rules for `AppleHFPTransport`:
+- **One `IOBluetoothHandsFreeDevice` per phone for the life of the process** (`HandsFreeRegistry`). Every reconnect calls `connect()` on the same object. It is never released, and the next transport for the same phone reuses it. An invalidated transport parks the object with a delegate that closes any SLC the phone opens.
+- **The phone may reconnect on its own.** When IOBluetooth writes `AT+BRSF` on our object while the transport is disconnected, the transport follows that set-up instead of starting a second one. An SLC that comes up after the user disconnected is closed again.
+- **Never adopt a dying or stale SLC.** When a transport is invalidated while its link is up, the registry remembers the disconnect in flight. The next owner (e.g. after Settings re-creates the engine) waits for it, at most 10 s, before connecting. Any SLC the transport did not see confirmed by `handsFree:connected:` (one found already up on an attempt, or one still up when the connect timer fires) is only adopted after it answers `AT+CLCC` within 3 s. Without the write hook, any final result after the probe counts as the answer. If the ACL is down, an SLC that reports `isConnected` is dead: the attempt counts as closed and backs off. An SLC that completes while the transport is closing is closed again if the user, sleep or the previous owner wanted the close. If the transport only gave up on its own earlier attempt, the fresh SLC is adopted. A phone-started set-up while no link is wanted is treated as closing, so its call events never reach the engine. A late `disconnected` callback during a set-up does not abort that set-up.
+- **Do not race the phone.** When the phone's ACL comes up, the transport waits 2.5 s for the phone's own reconnect (`AT+BRSF` on our object) before calling `connect()` itself.
+- **No calls into IOBluetooth from inside its callbacks.** Commands and `connect()`/`disconnect()` issued while a delegate callback, the RFCOMM data callback or the write hook runs are deferred to the next main-queue turn. This includes the parking delegate. A deferred command is dropped if the link went down in between.
+- **Outgoing AT lines are routed by channel.** The process-wide write hook hands each line to the transport that owns the channel's hands-free object; lines of parked objects are only logged.
+- **Diagnostics:** every AT line carries the object tag (`[hf#1]`), and connect lines show how many hands-free objects exist. An `AT+BRSF` on a channel the transport does not own is logged as an error, because that is the signature of this crash. Log lines are written with one `write(2)` each, before IOBluetooth processes the data, so the last line before a crash shows what triggered it.
+
+### Known edge cases to revisit after hardware tests
+- Third reconnect review, item L3: deferred on purpose until hardware tests with the first signed build confirm the open IOBluetooth behaviours.
+  - A `connected(status≠0)` callback (aborted connect of a parked object, or in the transport itself) does not confirm the pending close; the next owner then waits the full 10 s again.
+  - The parking delegate's `onClosed` is dispatched asynchronously; an owner that checks out in between waits the full 10 s.
+  - The reaper's `connected(0)` handler disconnects without setting `closeStartedAt`.
+  - A timed-out inherited wait increments `unconfirmedDisconnects` although the disconnect belonged to the previous owner; three engine re-creations could raise `linkSetupBlocked`.
+  - Idea: let `closeConfirmed` notify the current owner through a callback in the registry entry, confirm the close on status≠0, and do not count inherited time-outs.
+- If IOBluetooth keeps reporting `isConnected` for a dead SLC while the ACL is up, every attempt probes, gets no answer and closes again; `connect()` is never called on that object. If the hardware tests show this, add a forced `connect()` after a failed probe.
+

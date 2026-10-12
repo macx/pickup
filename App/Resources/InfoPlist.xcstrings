@@ -1,0 +1,60 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "comment": "App display name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup"
+          }
+        }
+      }
+    },
+    "NSBluetoothAlwaysUsageDescription": {
+      "comment": "Bluetooth permission prompt text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup uses Bluetooth to connect to your Android phone and control its calls."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup verwendet Bluetooth, um sich mit Ihrem Android-Telefon zu verbinden und dessen Anrufe zu steuern."
+          }
+        }
+      }
+    },
+    "NSContactsUsageDescription": {
+      "comment": "Contacts permission prompt text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup looks up the names of callers in your contacts."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup sucht die Namen von Anrufern in Ihren Kontakten."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

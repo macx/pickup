@@ -1,0 +1,4 @@
+#!/bin/bash
+# Optional local hook: rejects commit messages that are not Conventional Commits.
+# Enable once per clone with: git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/check-conventional-commits.sh" --msg-file "$1"

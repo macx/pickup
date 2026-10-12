@@ -1,0 +1,30 @@
+# Pull requests into main are squash-merged; the title becomes the commit on main, the CHANGELOG entry and the input
+# for the next version (Conventional Commits, docs/RELEASING.md). Separate from ci.yml so that editing a title
+# re-runs only this check. Required status check: "conventional title".
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    name: conventional title
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PR_TITLE: ${{ github.event.pull_request.title }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: PR title follows Conventional Commits
+        run: scripts/check-conventional-commits.sh "$PR_TITLE"

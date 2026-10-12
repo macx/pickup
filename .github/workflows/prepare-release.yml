@@ -1,0 +1,108 @@
+# Prepares a release (docs/RELEASING.md). Run it by hand on main: Actions > prepare-release > Run workflow.
+#
+# 1. Cuts release/vX.Y.Z from main and runs release-it there: next version from the Conventional Commits since the
+#    last tag (0.x: breaking changes bump the minor version, "preMajor"), or the version given as input;
+#    scripts/set-version.sh writes VERSION, App/Info.plist and package.json; CHANGELOG.md gets the new section;
+#    ONE commit "chore(release): vX.Y.Z". No tag, no GitHub Release: release.yml does both after the merge.
+# 2. Pushes the branch and opens the release pull request into main. CI runs on it; squash-merging it starts
+#    release.yml. Running this workflow again replaces the branch and updates the open pull request.
+#
+# RELEASE_TOKEN (environment "prepare-release") pushes the branch and opens the pull request: pull requests and
+# pushes made with the default GITHUB_TOKEN do not trigger CI. release-it itself runs without credentials.
+name: prepare-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Empty = from Conventional Commits; or patch | minor | major | X.Y.Z (first release: 0.1.0; 1.0.0 only deliberately, see docs/RELEASING.md)"
+        required: false
+        default: ""
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: version, changelog, release PR
+    if: github.repository == 'macx/pickup'
+    runs-on: ubuntu-latest
+    environment: prepare-release
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      INCREMENT: ${{ inputs.version }}
+    steps:
+      - name: Only on main, with a valid version input
+        run: |
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::run prepare-release on main (got $GITHUB_REF)"; exit 1; }
+          if [[ ! "$INCREMENT" =~ ^(|patch|minor|major|[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::version must be empty, patch, minor, major or X.Y.Z (got '$INCREMENT')"; exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # release-it and its dependencies never see a token
+          fetch-depth: 0 # release-it needs the history and the tags
+
+      - name: pnpm (pinned with hash in package.json, via corepack)
+        run: scripts/ci-setup-pnpm.sh
+
+      - name: Install release tooling from the lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: release-it on release/next (bump, changelog, one commit; no tag, no push)
+        run: |
+          set -euo pipefail
+          previous="$(scripts/set-version.sh --print)"
+          git switch --quiet -c release/next
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # shellcheck disable=SC2086 # INCREMENT is validated above and may be empty
+          pnpm exec release-it $INCREMENT --ci
+          version="$(scripts/set-version.sh --print)"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then echo "::error::v$version already exists"; exit 1; fi
+          # Never go backwards (e.g. 0.0.1 computed from no tags while VERSION already says 0.1.0).
+          lowest="$(printf '%s\n%s\n' "$previous" "$version" | sort -V | head -n 1)"
+          if [ "$lowest" != "$previous" ]; then echo "::error::computed $version is lower than VERSION $previous; pass the version explicitly"; exit 1; fi
+          if [ "$(git log -1 --format=%s)" != "chore(release): v$version" ]; then echo "::error::release-it did not create the release commit"; exit 1; fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Push release/v${{ env.VERSION }} and open or update the release pull request
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          [ -n "$RELEASE_TOKEN" ] || { echo "::error::RELEASE_TOKEN is missing in the prepare-release environment"; exit 1; }
+          branch="release/v$VERSION"
+          auth="$(printf 'x-access-token:%s' "$RELEASE_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth"
+          # --force: a re-run replaces an earlier, unmerged attempt for the same version.
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" push --force origin "HEAD:refs/heads/$branch"
+          {
+            echo "Release **v$VERSION**, prepared by the prepare-release workflow from main at \`${GITHUB_SHA:0:7}\`."
+            echo
+            scripts/changelog-section.sh "$VERSION" || echo "_No user-facing changes recorded._"
+            echo
+            echo "### Before merging (squash merge, keep the title)"
+            echo "- [ ] CI is green on this pull request"
+            echo "- [ ] Local gate with UI tests on this branch: \`scripts/verify.sh\`"
+            echo "- [ ] Hardware smoke test with the phone if Bluetooth code changed"
+            echo "- [ ] No other pull request was merged into main since this one was prepared (otherwise re-run prepare-release)"
+            echo
+            echo "Merging starts release.yml: tag v$VERSION, build, GitHub Release$([ "${VERSION%%.*}" = 0 ] && echo ' (pre-release)')."
+          } > "$RUNNER_TEMP/pr-body.md"
+          export GH_TOKEN="$RELEASE_TOKEN"
+          open_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open_pr" ]; then
+            gh pr edit "$open_pr" --repo "$GITHUB_REPOSITORY" --title "chore(release): v$VERSION" --body-file "$RUNNER_TEMP/pr-body.md"
+            echo "updated release pull request #$open_pr"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+              --title "chore(release): v$VERSION" --body-file "$RUNNER_TEMP/pr-body.md"
+          fi

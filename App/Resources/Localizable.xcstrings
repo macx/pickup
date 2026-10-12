@@ -1,0 +1,2454 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Connected to %@": {
+      "comment": "Menu bar status line. %@ is the phone name, e.g. \"Pixel 9 Pro\".",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected to %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden mit %@"
+          }
+        }
+      }
+    },
+    "No phone selected": {
+      "comment": "Menu bar status line when no phone has been chosen yet.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No phone selected"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Telefon ausgewählt"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "comment": "Menu item that opens the Settings window.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen …"
+          }
+        }
+      }
+    },
+    "Quit Pickup": {
+      "comment": "Menu item that quits the app. Pickup is the app name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit Pickup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup beenden"
+          }
+        }
+      }
+    },
+    "Incoming call on %@": {
+      "comment": "Caption in the incoming-call banner. %@ is the phone name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming call on %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingehender Anruf auf %@"
+          }
+        }
+      }
+    },
+    "Unknown caller": {
+      "comment": "Shown instead of a name when the caller number is not available.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown caller"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekannter Anrufer"
+          }
+        }
+      }
+    },
+    "Accept": {
+      "comment": "Green button that accepts an incoming call. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annehmen"
+          }
+        }
+      }
+    },
+    "Decline": {
+      "comment": "Red button that rejects an incoming call. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decline"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ablehnen"
+          }
+        }
+      }
+    },
+    "Accept call": {
+      "comment": "VoiceOver label of the Accept button.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept call"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf annehmen"
+          }
+        }
+      }
+    },
+    "Decline call": {
+      "comment": "VoiceOver label of the Decline button.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decline call"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf ablehnen"
+          }
+        }
+      }
+    },
+    "Incoming call from %@": {
+      "comment": "VoiceOver label of the incoming-call banner. %@ is the caller name or number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming call from %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingehender Anruf von %@"
+          }
+        }
+      }
+    },
+    "Calling…": {
+      "comment": "Status in the call window while an outgoing call is being set up.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calling…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf läuft …"
+          }
+        }
+      }
+    },
+    "Call with %@": {
+      "comment": "VoiceOver label of the call window header. %@ is the other party.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call with %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf mit %@"
+          }
+        }
+      }
+    },
+    "Call duration": {
+      "comment": "VoiceOver label of the running call timer.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call duration"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anrufdauer"
+          }
+        }
+      }
+    },
+    "Mute": {
+      "comment": "Button that mutes the Mac microphone during a call. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mute"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stumm"
+          }
+        }
+      }
+    },
+    "Unmute": {
+      "comment": "VoiceOver label while the microphone is muted.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unmute"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stummschaltung aufheben"
+          }
+        }
+      }
+    },
+    "Keypad": {
+      "comment": "Button that shows the dial pad during a call. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keypad"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tastenfeld"
+          }
+        }
+      }
+    },
+    "Hide Keypad": {
+      "comment": "VoiceOver label while the dial pad is visible.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide Keypad"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tastenfeld ausblenden"
+          }
+        }
+      }
+    },
+    "Move to Phone": {
+      "comment": "Button that moves the call audio back to the phone. Keep it short; it is shown under a round button.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to Phone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf Telefon"
+          }
+        }
+      }
+    },
+    "Move call to phone": {
+      "comment": "VoiceOver label of the Move to Phone button.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move call to phone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf auf das Telefon übertragen"
+          }
+        }
+      }
+    },
+    "End Call": {
+      "comment": "Red button that ends the call.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End Call"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auflegen"
+          }
+        }
+      }
+    },
+    "Call audio is on %@": {
+      "comment": "Caption in the call window in remote-control mode. %@ is the phone name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call audio is on %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf-Audio läuft auf %@"
+          }
+        }
+      }
+    },
+    "Phone": {
+      "comment": "Settings section header.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon"
+          }
+        }
+      }
+    },
+    "Take calls on this Mac": {
+      "comment": "Toggle: use the Mac microphone and speakers for calls. Disabled until the feature ships.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take calls on this Mac"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anrufe an diesem Mac führen"
+          }
+        }
+      }
+    },
+    "Launch at login": {
+      "comment": "Toggle: start Pickup automatically when the user logs in.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch at login"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beim Anmelden öffnen"
+          }
+        }
+      }
+    },
+    "Pickup needs your approval in System Settings > General > Login Items.": {
+      "comment": "Caption shown when the system requires approval for the login item.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup needs your approval in System Settings > General > Login Items."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup benötigt Ihre Bestätigung in den Systemeinstellungen unter „Allgemein“ > „Anmeldeobjekte“."
+          }
+        }
+      }
+    },
+    "Open Login Items Settings…": {
+      "comment": "Button that opens the Login Items pane of System Settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Login Items Settings…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anmeldeobjekte öffnen …"
+          }
+        }
+      }
+    },
+    "Could not change the login item setting.": {
+      "comment": "Error caption shown when registering the login item failed.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not change the login item setting."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Einstellung für das Anmeldeobjekt konnte nicht geändert werden."
+          }
+        }
+      }
+    },
+    "Pickup": {
+      "comment": "Name of the app (menu bar icon accessibility label).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup"
+          }
+        }
+      }
+    },
+    "Missed call": {
+      "comment": "Call window status and notification title: an incoming call stopped ringing unanswered.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed call"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verpasster Anruf"
+          }
+        }
+      }
+    },
+    "Call declined": {
+      "comment": "Call window status: the user declined an incoming call on the Mac.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call declined"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf abgelehnt"
+          }
+        }
+      }
+    },
+    "Call cancelled": {
+      "comment": "Call window status: the user cancelled an outgoing call before it was answered.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call cancelled"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf abgebrochen"
+          }
+        }
+      }
+    },
+    "No answer": {
+      "comment": "Call window status: an outgoing call was not answered (busy, rejected or no answer).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No answer"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Antwort"
+          }
+        }
+      }
+    },
+    "Call could not be placed": {
+      "comment": "Call window status: the phone did not start the outgoing call.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call could not be placed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf konnte nicht gestartet werden"
+          }
+        }
+      }
+    },
+    "Call ended": {
+      "comment": "Call window status: the call is over.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call ended"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf beendet"
+          }
+        }
+      }
+    },
+    "Connection to phone lost": {
+      "comment": "Call window status: the Bluetooth link dropped; the call may still run on the phone.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection to phone lost"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung zum Telefon verloren"
+          }
+        }
+      }
+    },
+    "Call audio could not be started on this Mac. It stays on your phone.": {
+      "comment": "Notice in the call window after the audio connection to the Mac timed out.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call audio could not be started on this Mac. It stays on your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Anruf-Audio konnte auf diesem Mac nicht gestartet werden. Es bleibt auf Ihrem Telefon."
+          }
+        }
+      }
+    },
+    "Call audio on this Mac was interrupted. It moved back to your phone.": {
+      "comment": "Notice in the call window after the audio connection to the Mac dropped during a call.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call audio on this Mac was interrupted. It moved back to your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Anruf-Audio auf diesem Mac wurde unterbrochen. Es läuft wieder auf Ihrem Telefon."
+          }
+        }
+      }
+    },
+    "Call audio moved to your phone.": {
+      "comment": "Notice in the call window after the user chose Move to Phone.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call audio moved to your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Anruf-Audio wurde auf Ihr Telefon verlegt."
+          }
+        }
+      }
+    },
+    "Your phone is not connected.": {
+      "comment": "Error when a call action needs a Bluetooth connection that is not up.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your phone is not connected."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Telefon ist nicht verbunden."
+          }
+        }
+      }
+    },
+    "That is not possible right now.": {
+      "comment": "Error when a call action does not fit the current call state, e.g. answering when nothing rings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That is not possible right now."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist gerade nicht möglich."
+          }
+        }
+      }
+    },
+    "Another call is already in progress.": {
+      "comment": "Error when dialing while a call is live.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another call is already in progress."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es läuft bereits ein anderer Anruf."
+          }
+        }
+      }
+    },
+    "Your phone does not support this.": {
+      "comment": "Error when the phone or transport cannot do the requested action.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your phone does not support this."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Telefon unterstützt das nicht."
+          }
+        }
+      }
+    },
+    "Your phone could not carry out that action.": {
+      "comment": "Notice when the phone answered a call command (answer, hang up, dial) with an error.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your phone could not carry out that action."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Telefon konnte diese Aktion nicht ausführen."
+          }
+        }
+      }
+    },
+    "your phone": {
+      "comment": "Fallback for the phone's name, used mid-sentence after \"on\"/\"auf\", e.g. \"Call audio is on your phone\"/\"Anruf-Audio läuft auf Ihrem Telefon\". German must be dative.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your phone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihrem Telefon"
+          }
+        }
+      }
+    },
+    "This phone link cannot be used.": {
+      "comment": "Alert title when a tel: or callto: link has no valid number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This phone link cannot be used."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Telefonlink kann nicht verwendet werden."
+          }
+        }
+      }
+    },
+    "The link does not contain a valid phone number.": {
+      "comment": "Alert detail for an invalid tel: link.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The link does not contain a valid phone number."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Link enthält keine gültige Telefonnummer."
+          }
+        }
+      }
+    },
+    "Call %@?": {
+      "comment": "Confirmation title for a tel: link. %@ is the contact name or the formatted phone number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call %@?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ anrufen?"
+          }
+        }
+      }
+    },
+    "Pickup will place this call on %@.": {
+      "comment": "Confirmation detail for a tel: link. %@ is the phone name, or \"your phone\" (dative in German).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup will place this call on %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup startet diesen Anruf auf %@."
+          }
+        }
+      }
+    },
+    "Call": {
+      "comment": "Button that places the call.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anrufen"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "comment": "Button that dismisses a dialog.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abbrechen"
+          }
+        }
+      }
+    },
+    "Choose your phone in Settings first.": {
+      "comment": "Alert detail when no phone is selected.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose your phone in Settings first."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie zuerst in den Einstellungen Ihr Telefon aus."
+          }
+        }
+      }
+    },
+    "OK": {
+      "comment": "Button that dismisses an alert.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "Ringing…": {
+      "comment": "Call window status: the remote party's phone is ringing (outgoing call).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ringing…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es klingelt…"
+          }
+        }
+      }
+    },
+    "On hold": {
+      "comment": "Call window status: the call is on hold.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On hold"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gehalten"
+          }
+        }
+      }
+    },
+    "Call waiting: %@": {
+      "comment": "Call window line when a second caller is waiting. %@ is the caller's name or number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call waiting: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf wartet: %@"
+          }
+        }
+      }
+    },
+    "Close": {
+      "comment": "Button that closes the call window after the call ended.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schließen"
+          }
+        }
+      }
+    },
+    "Connecting to %@…": {
+      "comment": "Menu status line while the Bluetooth link is being set up. %@ is the phone name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting to %@…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde mit %@…"
+          }
+        }
+      }
+    },
+    "Reconnecting to %@…": {
+      "comment": "Menu status line while Pickup retries the Bluetooth link after it dropped. %@ is the phone name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnecting to %@…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde erneut mit %@…"
+          }
+        }
+      }
+    },
+    "Not connected to %@": {
+      "comment": "Menu status line when the Bluetooth link is down. %@ is the phone name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected to %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht verbunden mit %@"
+          }
+        }
+      }
+    },
+    "Choose your phone": {
+      "comment": "First-run guidance title: no phone selected yet.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose your phone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon auswählen"
+          }
+        }
+      }
+    },
+    "Bluetooth access is off": {
+      "comment": "Guidance title: the user denied Bluetooth access to Pickup.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth access is off"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth-Zugriff ist deaktiviert"
+          }
+        }
+      }
+    },
+    "Can’t reach %@": {
+      "comment": "Guidance title when the Bluetooth link does not come up. %@ is the phone name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t reach %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ist nicht erreichbar"
+          }
+        }
+      }
+    },
+    "Pair your phone in System Settings > Bluetooth, then select it in Pickup’s settings.": {
+      "comment": "First-run guidance text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pair your phone in System Settings > Bluetooth, then select it in Pickup’s settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koppeln Sie Ihr Telefon in den Systemeinstellungen unter „Bluetooth“ und wählen Sie es dann in den Einstellungen von Pickup aus."
+          }
+        }
+      }
+    },
+    "Allow Pickup under Privacy & Security > Bluetooth so it can talk to your phone.": {
+      "comment": "Guidance text when Bluetooth access was denied.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Pickup under Privacy & Security > Bluetooth so it can talk to your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erlauben Sie Pickup unter „Datenschutz & Sicherheit“ > „Bluetooth“ den Zugriff, damit es mit Ihrem Telefon kommunizieren kann."
+          }
+        }
+      }
+    },
+    "Make sure Bluetooth is on and the phone is nearby. If the phone asks, allow this Mac to access phone calls (Pixel: Bluetooth settings, “Phone calls”).": {
+      "comment": "Guidance text when the Bluetooth link does not come up. Mentions the Android permission \"Phone calls\" in the paired-device settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make sure Bluetooth is on and the phone is nearby. If the phone asks, allow this Mac to access phone calls (Pixel: Bluetooth settings, “Phone calls”)."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stellen Sie sicher, dass Bluetooth eingeschaltet und das Telefon in der Nähe ist. Erlauben Sie diesem Mac auf Nachfrage den Zugriff auf Telefonanrufe (Pixel: Bluetooth-Einstellungen, „Telefonanrufe“)."
+          }
+        }
+      }
+    },
+    "Choose Phone…": {
+      "comment": "Button that opens Pickup’s settings to select the phone.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Phone…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon auswählen…"
+          }
+        }
+      }
+    },
+    "Open Privacy Settings…": {
+      "comment": "Button that opens the Bluetooth privacy pane in System Settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Privacy Settings…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutzeinstellungen öffnen…"
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "comment": "Button that retries the Bluetooth connection.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut versuchen"
+          }
+        }
+      }
+    },
+    "None": {
+      "comment": "Picker entry: no phone selected.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keines"
+          }
+        }
+      }
+    },
+    "Reconnect": {
+      "comment": "Button that retries the Bluetooth connection now.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut verbinden"
+          }
+        }
+      }
+    },
+    "Bluetooth access is off for Pickup.": {
+      "comment": "Settings caption when Bluetooth access was denied.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth access is off for Pickup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Bluetooth-Zugriff ist für Pickup deaktiviert."
+          }
+        }
+      }
+    },
+    "Phone links": {
+      "comment": "Settings section title for tel: and callto: links.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone links"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonlinks"
+          }
+        }
+      }
+    },
+    "Clicking a phone number link in Safari, Contacts or other apps will then ask Pickup to call it on your phone.": {
+      "comment": "Settings caption below the default-handler button.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clicking a phone number link in Safari, Contacts or other apps will then ask Pickup to call it on your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Klick auf eine Telefonnummer in Safari, Kontakten oder anderen Apps lässt Pickup die Nummer dann auf Ihrem Telefon anrufen."
+          }
+        }
+      }
+    },
+    "Caller names come from your contacts.": {
+      "comment": "Settings status when contact access is granted.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caller names come from your contacts."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anrufernamen stammen aus Ihren Kontakten."
+          }
+        }
+      }
+    },
+    "Pickup cannot read your contacts, so callers appear with their number.": {
+      "comment": "Settings caption when contact access was denied.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup cannot read your contacts, so callers appear with their number."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup kann Ihre Kontakte nicht lesen, daher erscheinen Anrufer mit ihrer Nummer."
+          }
+        }
+      }
+    },
+    "Open Contacts Privacy Settings…": {
+      "comment": "Button that opens the Contacts privacy pane.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Contacts Privacy Settings…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutzeinstellungen für Kontakte öffnen…"
+          }
+        }
+      }
+    },
+    "Notifications are off for Pickup in System Settings.": {
+      "comment": "Settings caption when notifications were denied.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are off for Pickup in System Settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitteilungen sind für Pickup in den Systemeinstellungen deaktiviert."
+          }
+        }
+      }
+    },
+    "This number is a service code and needs your confirmation.": {
+      "comment": "Error when a number containing * or # (e.g. call forwarding) is dialed without explicit confirmation.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This number is a service code and needs your confirmation."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Nummer ist ein Dienstcode und muss von Ihnen bestätigt werden."
+          }
+        }
+      }
+    },
+    "This link wants to send a service code (e.g. call forwarding) to your phone.": {
+      "comment": "Strong warning in the confirmation alert when a tel: link contains * or #. Such codes can change phone settings such as call forwarding.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This link wants to send a service code (e.g. call forwarding) to your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Link möchte einen Dienstcode (z. B. eine Rufumleitung) an Ihr Telefon senden."
+          }
+        }
+      }
+    },
+    "Can’t reach your phone": {
+      "comment": "Guidance title when the Bluetooth link does not come up and the phone's name is unknown. Separate from the named variant so the name slot needs no inflection.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t reach your phone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Telefon ist nicht erreichbar"
+          }
+        }
+      }
+    },
+    "Waiting for your phone to connect…": {
+      "comment": "Shown in the phone-link confirmation while the Bluetooth link is down; the Call button enables itself when it is up.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for your phone to connect…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warte auf die Verbindung zu Ihrem Telefon …"
+          }
+        }
+      }
+    },
+    "macOS refused the change: %@": {
+      "comment": "Error under the phone-link setting. %@ is the system's own error text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS refused the change: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS hat die Änderung abgelehnt: %@"
+          }
+        }
+      }
+    },
+    "macOS did not apply the change.": {
+      "comment": "Error under the phone-link setting when the system reported success but Pickup is still not the default.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS did not apply the change."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS hat die Änderung nicht übernommen."
+          }
+        }
+      }
+    },
+    "Not Now": {
+      "comment": "Button that dismisses a first-run hint.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Now"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht jetzt"
+          }
+        }
+      }
+    },
+    "Use Pickup for phone links": {
+      "comment": "First-run hint title: another app still opens tel: links.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use Pickup for phone links"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup für Telefonlinks verwenden"
+          }
+        }
+      }
+    },
+    "Phone number links in Safari and other apps still open another app. Make Pickup the default to place those calls on your phone.": {
+      "comment": "First-run hint text about tel: links.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone number links in Safari and other apps still open another app. Make Pickup the default to place those calls on your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonnummern-Links in Safari und anderen Apps öffnen noch eine andere App. Machen Sie Pickup zur Standard-App, damit diese Anrufe über Ihr Telefon geführt werden."
+          }
+        }
+      }
+    },
+    "Make Default": {
+      "comment": "Button that makes Pickup the default app for phone links. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make Default"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Standard festlegen"
+          }
+        }
+      }
+    },
+    "Pickup is the default for phone links (tel: and callto:).": {
+      "comment": "Status in Settings when Pickup handles phone links.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup is the default for phone links (tel: and callto:)."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup ist die Standard-App für Telefonlinks (tel: und callto:)."
+          }
+        }
+      }
+    },
+    "If macOS does not accept the change, open FaceTime, choose Settings and select Pickup under “Default for calls”.": {
+      "comment": "Manual fallback instructions. FaceTime's setting is called \"Default for calls\" in English.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If macOS does not accept the change, open FaceTime, choose Settings and select Pickup under “Default for calls”."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falls macOS die Änderung nicht übernimmt, öffnen Sie FaceTime, wählen Sie „Einstellungen“ und wählen Sie unter „Standard für Anrufe“ die App Pickup."
+          }
+        }
+      }
+    },
+    "About Pickup": {
+      "comment": "Menu item that opens the standard About panel. Pickup is the app name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About Pickup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über Pickup"
+          }
+        }
+      }
+    },
+    "More": {
+      "comment": "VoiceOver label of the round ellipsis menu button in the popover.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr"
+          }
+        }
+      }
+    },
+    "Copyright © 2026 David Eiken. All rights reserved.": {
+      "comment": "Copyright line in the About panel.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2026 David Eiken. All rights reserved."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright © 2026 David Eiken. Alle Rechte vorbehalten."
+          }
+        }
+      }
+    },
+    "Make and answer calls on your Android phone from your Mac.": {
+      "comment": "One-line description in the About panel.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make and answer calls on your Android phone from your Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Führen und beantworten Sie Anrufe Ihres Android-Telefons an Ihrem Mac."
+          }
+        }
+      }
+    },
+    "Source code on GitHub": {
+      "comment": "Link text in the About panel.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source code on GitHub"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quellcode auf GitHub"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "comment": "Title of the Settings window.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen"
+          }
+        }
+      }
+    },
+    "Connect your phone to place calls.": {
+      "comment": "Short reason shown in the popover when no phone is connected and dialing is disabled.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect your phone to place calls."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden Sie Ihr Telefon, um Anrufe zu starten."
+          }
+        }
+      }
+    },
+    "Finish the current call first.": {
+      "comment": "Short reason shown in the popover while a call is live and dialing is disabled.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the current call first."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beenden Sie zuerst das aktuelle Gespräch."
+          }
+        }
+      }
+    },
+    "Search": {
+      "comment": "Placeholder of the popover's search field (like the Phone app's \"Suchen\"). Keep it one word.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suchen"
+          }
+        }
+      }
+    },
+    "Search contacts or enter a number": {
+      "comment": "VoiceOver label of the popover's search field.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search contacts or enter a number"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakte suchen oder Nummer eingeben"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "comment": "Button that clears the search field. Tooltip and VoiceOver label.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Löschen"
+          }
+        }
+      }
+    },
+    "No matches": {
+      "comment": "Shown when the search finds no contact.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matches"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Treffer"
+          }
+        }
+      }
+    },
+    "Type a name or a number.": {
+      "comment": "Calm empty state of the popover when the search field is empty.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a name or a number."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie einen Namen oder eine Nummer ein."
+          }
+        }
+      }
+    },
+    "Allow access to search contacts": {
+      "comment": "Button in the popover that asks for Contacts access so names can be searched.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow access to search contacts"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugriff auf Kontakte erlauben"
+          }
+        }
+      }
+    },
+    "This number cannot be dialed.": {
+      "comment": "Inline error when a contact's number is not a valid phone number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This number cannot be dialed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Nummer kann nicht gewählt werden."
+          }
+        }
+      }
+    },
+    "Call %@": {
+      "comment": "First result row when the typed text is a valid number. %@ is the formatted number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ anrufen"
+          }
+        }
+      }
+    },
+    "mobile": {
+      "comment": "Phone number label used only for demo contacts (real labels come from the system).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mobile"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mobil"
+          }
+        }
+      }
+    },
+    "work": {
+      "comment": "Phone number label used only for demo contacts.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "work"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arbeit"
+          }
+        }
+      }
+    },
+    "home": {
+      "comment": "Phone number label used only for demo contacts.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "home"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "privat"
+          }
+        }
+      }
+    },
+    "Privacy Settings…": {
+      "comment": "Button that opens the matching pane in System Settings > Privacy & Security.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy Settings…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutzeinstellungen …"
+          }
+        }
+      }
+    },
+    "Show all Bluetooth devices": {
+      "comment": "Menu item (checkmark) in Settings: also list paired devices that do not look like phones.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show all Bluetooth devices"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Bluetooth-Geräte anzeigen"
+          }
+        }
+      }
+    },
+    "Phone options": {
+      "comment": "VoiceOver label and tooltip of the small menu next to the phone picker in Settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone options"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefonoptionen"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "comment": "Short connection status next to the phone picker in Settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden"
+          }
+        }
+      }
+    },
+    "Connecting…": {
+      "comment": "Short connection status next to the phone picker while the link is being set up.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde …"
+          }
+        }
+      }
+    },
+    "Reconnecting…": {
+      "comment": "Short connection status next to the phone picker while Pickup retries.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnecting…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde erneut …"
+          }
+        }
+      }
+    },
+    "Not connected": {
+      "comment": "Short connection status next to the phone picker when the link is down.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht verbunden"
+          }
+        }
+      }
+    },
+    "Contacts": {
+      "comment": "Settings row label for the Contacts permission.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacts"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontakte"
+          }
+        }
+      }
+    },
+    "Allowed": {
+      "comment": "Status in Settings when access (e.g. to Contacts) is granted.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erlaubt"
+          }
+        }
+      }
+    },
+    "Allow…": {
+      "comment": "Button that asks the system for a permission. Keep it short.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erlauben …"
+          }
+        }
+      }
+    },
+    "Pickup shows caller names and searches your contacts when you dial.": {
+      "comment": "Tooltip of the Allow button for Contacts access in Settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup shows caller names and searches your contacts when you dial."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup zeigt Anrufernamen an und durchsucht beim Wählen Ihre Kontakte."
+          }
+        }
+      }
+    },
+    "Missed call notifications": {
+      "comment": "Settings toggle: show a notification for missed calls.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed call notifications"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitteilungen bei verpassten Anrufen"
+          }
+        }
+      }
+    },
+    "Notification Settings…": {
+      "comment": "Button that opens Notifications in System Settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notification Settings…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitteilungseinstellungen …"
+          }
+        }
+      }
+    },
+    "No phone found. Pair your phone in System Settings > Bluetooth first.": {
+      "comment": "One-line hint in Settings when no paired phone is listed.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No phone found. Pair your phone in System Settings > Bluetooth first."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Telefon gefunden. Koppeln Sie Ihr Telefon zuerst in den Systemeinstellungen unter „Bluetooth“."
+          }
+        }
+      }
+    },
+    "Double-click or press Return to call.": {
+      "comment": "VoiceOver hint of a search result row in the popover.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double-click or press Return to call."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doppelklicken oder Return drücken, um anzurufen."
+          }
+        }
+      }
+    },
+    "Service code": {
+      "comment": "Warning subtitle on the call row when the text is a service code (contains * or #), e.g. call forwarding.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dienstcode"
+          }
+        }
+      }
+    },
+    "This is a service code (for example call forwarding). Press Return again to send it to your phone.": {
+      "comment": "Inline warning in the popover when typed or pasted text is a service code containing * or #. A second Return confirms.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a service code (for example call forwarding). Press Return again to send it to your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist ein Dienstcode (z. B. eine Rufumleitung). Drücken Sie erneut Return, um ihn an Ihr Telefon zu senden."
+          }
+        }
+      }
+    },
+    "Not available yet. For now, Pickup controls your calls from the Mac while the conversation stays on your phone.": {
+      "comment": "Tooltip of the disabled \"Take calls on this Mac\" setting.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not available yet. For now, Pickup controls your calls from the Mac while the conversation stays on your phone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nicht verfügbar. Vorerst steuert Pickup Ihre Anrufe vom Mac aus, während das Gespräch auf dem Telefon bleibt."
+          }
+        }
+      }
+    },
+    "Global shortcut": {
+      "comment": "Settings row label: a system-wide keyboard shortcut that opens Pickup's menu bar window.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Global shortcut"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Globales Tastenkürzel"
+          }
+        }
+      }
+    },
+    "Opens Pickup's menu bar window from anywhere. Press it again to close it.": {
+      "comment": "Tooltip of the global shortcut row in Settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens Pickup's menu bar window from anywhere. Press it again to close it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnet das Pickup-Fenster in der Menüleiste von überall aus. Erneutes Drücken schließt es."
+          }
+        }
+      }
+    },
+    "Clear shortcut": {
+      "comment": "VoiceOver label and tooltip of the x that removes the global shortcut.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear shortcut"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kürzel entfernen"
+          }
+        }
+      }
+    },
+    "Press shortcut…": {
+      "comment": "Shown on the shortcut button while it waits for a key combination.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press shortcut…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kürzel drücken …"
+          }
+        }
+      }
+    },
+    "Click to record": {
+      "comment": "Shown on the shortcut button when no global shortcut is set.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to record"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Aufnehmen klicken"
+          }
+        }
+      }
+    },
+    "Include ⌘, ⌃ or ⌥ in the shortcut.": {
+      "comment": "Hint when a recorded shortcut has no ⌘, ⌃ or ⌥ modifier and was rejected.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include ⌘, ⌃ or ⌥ in the shortcut."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Kürzel muss ⌘, ⌃ oder ⌥ enthalten."
+          }
+        }
+      }
+    },
+    "macOS may already use this combination.": {
+      "comment": "Warning under the global shortcut when it matches a well-known system shortcut.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS may already use this combination."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS verwendet diese Kombination möglicherweise bereits."
+          }
+        }
+      }
+    },
+    "%@ (%@)": {
+      "comment": "Tooltip of the menu bar icon with the global shortcut. First %@ is the app name, second the shortcut, e.g. ⌃⌥P.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (%@)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (%@)"
+          }
+        }
+      }
+    },
+    "Insert plus sign": {
+      "comment": "VoiceOver custom action of the 0 key on the keypad: inserts a + (also reachable by long press).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insert plus sign"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluszeichen einfügen"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

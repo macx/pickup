@@ -1,0 +1,27 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.pklg
+*.btsnoop
+*.log
+.claude/settings.local.json
+# Audio recordings from the spikes may contain voices: never commit them.
+*.wav
+*.aiff
+*.caf
+# Optional local list of real names/numbers for scripts/security-checks.sh (never commit).
+scripts/personal-data-denylist
+
+# Git bundles (repository backups) do not belong in the repo
+*.bundle
+
+# Generated high-resolution brand renders (regenerate with scripts/generate-brand-assets.sh; attach to GitHub Releases)
+docs/brand/*-2048.png
+docs/brand/*-4096.png
+
+# Release artifacts (scripts/package-release.sh) and release tooling
+dist/
+node_modules/

@@ -1,0 +1,29 @@
+# Dependabot: keeps the SHA-pinned GitHub Actions and the release-only tooling (pnpm lockfile) current, as pull
+# requests into main. Dependabot uses the "npm" ecosystem name for pnpm projects.
+# The app itself has no package dependencies.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    commit-message: # Conventional title for the pr-title check: "ci(deps): bump ..."
+      prefix: ci
+      include: scope
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14 # let new releases age before adopting them
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    commit-message: # "build(deps-dev): bump ..."
+      prefix: build
+      include: scope
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 14
+    groups:
+      release-tooling:
+        patterns: ["*"]

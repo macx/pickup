@@ -1,0 +1,199 @@
+# Continuous integration for Pickup (docs/TESTING.md, docs/RELEASING.md).
+# The same checks as the local gate scripts/verify.sh, split into jobs so that the rulesets can require each.
+# Trunk-based: runs on every pull request into main, on pushes to main, weekly and on demand. release.yml calls it
+# (workflow_call) after a release pull request was merged, so a release is only built when every job passed for
+# exactly that commit.
+#
+# Runner: macOS 27 with Xcode 27 (the toolchain the project is developed with) is GitHub's "xcode-27" image, a public
+# preview in October 2026. Override with the repository variable PICKUP_MACOS_RUNNER (e.g. "macos-26" once its
+# default Xcode builds the project) and PICKUP_DEVELOPER_DIR (e.g. /Applications/Xcode_27.1.app/Contents/Developer).
+#
+# UI tests (Accessibility API) are a LOCAL gate (scripts/verify.sh; docs/RELEASING.md asks for a run on the release
+# pull request before merging). The job below is experimental and opt-in (repository variable PICKUP_CI_UI_TESTS=true): GitHub's
+# macOS images pre-grant Accessibility to /bin/bash and the runner provisioner in TCC.db, but whether that covers our
+# test process has not been verified, so the job may not fail the workflow.
+#
+# Repository guard: the jobs run only in macx/pickup. In any other repository (the private workshop pickup-dev,
+# forks) they are skipped unless the repository variable PICKUP_CI_ENABLED is "true".
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 1" # weekly full run (toolchain or image drift)
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CI: "true" # verify.sh and security-checks.sh: a missing tool is a failure
+  DEVELOPER_DIR: ${{ vars.PICKUP_DEVELOPER_DIR || '/Applications/Xcode.app/Contents/Developer' }}
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_ANALYTICS: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  release-tooling:
+    name: release tooling (pnpm, release-it)
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: pnpm (pinned with hash in package.json, via corepack)
+        run: scripts/ci-setup-pnpm.sh
+      - name: Install from the lockfile only
+        run: pnpm install --frozen-lockfile
+      - name: release-it loads its configuration
+        run: pnpm exec release-it --version && node -e "JSON.parse(require('fs').readFileSync('.release-it.json','utf8'))"
+      - name: Version files agree
+        run: scripts/set-version.sh --check
+
+  lint:
+    name: lint (swiftlint)
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install swiftlint
+        run: command -v swiftlint || brew install swiftlint
+      - name: swiftlint --strict
+        run: swiftlint lint --config .swiftlint.yml --quiet --strict
+
+  localization:
+    name: localization check
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: swift --version && xcodebuild -version
+      - name: String Catalog check (en, de)
+        run: scripts/check-localization.sh
+
+  test:
+    name: build and test (unit, scenario, fuzz)
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: swift --version && xcodebuild -version
+      - name: Build root package (warnings as errors)
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
+      - name: Test root package (core, Bluetooth, scenarios, fuzz, log canaries)
+        run: swift test --skip-build -Xswiftc -warnings-as-errors
+      - name: Build App package (warnings as errors)
+        run: swift build --build-tests --package-path App -Xswiftc -warnings-as-errors
+      - name: Test App package
+        run: swift test --skip-build --package-path App -Xswiftc -warnings-as-errors
+      - name: Spikes (workshop repository only)
+        run: |
+          if [ -d spikes/apple-hfp ]; then
+            swift build --build-tests --package-path spikes/apple-hfp -Xswiftc -warnings-as-errors
+            swift test --skip-build --package-path spikes/apple-hfp -Xswiftc -warnings-as-errors
+          else
+            echo "no spikes/ in this repository (public export); skipped"
+          fi
+
+  sanitizers:
+    name: sanitizers (address, thread)
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: AddressSanitizer (root)
+        run: swift test --sanitize=address --scratch-path .build/asan
+      - name: AddressSanitizer (App)
+        run: swift test --sanitize=address --package-path App --scratch-path App/.build/asan
+      # The App package touches AppKit/IOBluetooth, which are not TSan-clean (see scripts/verify.sh).
+      - name: ThreadSanitizer (root)
+        run: swift test --sanitize=thread --scratch-path .build/tsan
+
+  security:
+    name: security (gitleaks, semgrep, security-checks)
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # gitleaks scans the whole history
+      - name: Install gitleaks and semgrep
+        run: brew install gitleaks semgrep
+      - name: Security checks (entitlements, patterns, personal data, gitleaks, semgrep offline rules)
+        run: scripts/security-checks.sh --strict
+
+  build:
+    name: build release app (unsigned dry run)
+    if: github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true'
+    needs: [lint, localization, test, sanitizers, security]
+    runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 45
+    env:
+      PICKUP_GATE: ci # the jobs this one needs are the gate; build-app.sh honours this only inside Actions
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the release audit runs gitleaks on the history again
+      - name: Install gitleaks and semgrep (release audit)
+        run: brew install gitleaks semgrep
+      - name: Version consistency
+        run: scripts/set-version.sh --check
+      - name: Package (ad-hoc signed, not notarised)
+        run: scripts/package-release.sh --dry-run
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pickup-unsigned-${{ github.sha }}
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+
+  ui-tests:
+    name: UI tests (experimental, opt-in)
+    if: vars.PICKUP_CI_UI_TESTS == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: [test]
+    runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 30
+    continue-on-error: true # not a required check: see the header of this file
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run UI tests against the debug app with the scripted phone
+        run: scripts/run-ui-tests.sh
+      - name: Upload screenshots and log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-tests-${{ github.sha }}
+          path: |
+            .build/ui-screenshots/
+            .build/ui-tests.log
+          retention-days: 7
+          if-no-files-found: ignore

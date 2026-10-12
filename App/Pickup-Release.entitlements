@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Release (Developer ID, direct distribution) entitlements. Used by `scripts/build-app.sh release`, which signs
+	     with the Hardened Runtime (`codesign -o runtime`). No App Sandbox (setDefaultApplication for tel: links fails
+	     inside it, see docs/RELEASING.md) and no com.apple.security.get-task-allow (a release must not be debuggable).
+
+	     Checked against Apple's documentation (2026-10-12):
+	     - "Hardened Runtime" lists the resource-access entitlements a non-sandboxed hardened app may need: audio-input,
+	       camera, location, addressbook, calendars, photos-library, apple-events. Contacts therefore needs
+	       com.apple.security.personal-information.addressbook ("enable the Hardened Runtime capability and then
+	       select Address Book"). The macOS privacy prompt still uses NSContactsUsageDescription.
+	     - Bluetooth is NOT in that list: com.apple.security.device.bluetooth is an App Sandbox entitlement ("enable the
+	       App Sandbox capability ... under Hardware, select Bluetooth"). A non-sandboxed hardened app reaches
+	       IOBluetooth with the Bluetooth privacy permission (NSBluetoothAlwaysUsageDescription), so the key is left
+	       out here. To be confirmed on hardware with the first Developer ID build (docs/RELEASING.md, "Verification").
+	     - The audio extension (phase 4) would add com.apple.security.device.audio-input; not before it ships. -->
+	<key>com.apple.security.personal-information.addressbook</key><true/>
+</dict>
+</plist>

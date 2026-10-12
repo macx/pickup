@@ -1,0 +1,46 @@
+# Local, offline semgrep rules for Pickup (no registry, no network). Run via scripts/security-checks.sh.
+# Regex based on purpose: semgrep's Swift AST matching treats `try?` like `try!` and `as` like `as!`.
+# Justified exceptions carry a `// nosemgrep: <rule-id>` comment (or an entry in the script allowlist).
+rules:
+  - id: pickup-no-force-try
+    languages: [generic]
+    paths: { include: ["*.swift"] }
+    severity: ERROR
+    message: "try! crashes on bad external input; handle the error."
+    pattern-regex: '(?<![A-Za-z0-9_])try!\s'
+  - id: pickup-no-force-cast
+    languages: [generic]
+    paths: { include: ["*.swift"] }
+    severity: ERROR
+    message: "as! crashes on unexpected data from the phone, contacts or URLs; use as?."
+    pattern-regex: '\sas!\s'
+  - id: pickup-no-fatal-error
+    languages: [generic]
+    paths: { include: ["*.swift"] }
+    severity: ERROR
+    message: "fatalError/preconditionFailure takes the whole app (and a running call UI) down."
+    pattern-regex: '(?<![A-Za-z0-9_.])(fatalError|preconditionFailure)\('
+  - id: pickup-no-print-or-nslog
+    languages: [generic]
+    paths: { include: ["*.swift"] }
+    severity: ERROR
+    message: "print/NSLog bypass phone number redaction. Use DiagnosticLogging."
+    pattern-regex: '(?<![A-Za-z0-9_.])(print|NSLog|debugPrint|dump)\('
+  - id: pickup-no-networking
+    languages: [generic]
+    paths: { include: ["*.swift"] }
+    severity: ERROR
+    message: "Pickup has no network access by design (docs/TESTING.md threat model)."
+    pattern-regex: '\b(URLSession|URLRequest|NWConnection|NWListener|WKWebView|CFSocket)\b'
+  - id: pickup-no-shell-or-applescript
+    languages: [generic]
+    paths: { include: ["*.swift"] }
+    severity: ERROR
+    message: "Spawning processes or AppleScript is an injection risk for data that may come from the phone or a URL."
+    pattern-regex: '(\bProcess\(\)|\bNSAppleScript\b|\bNSTask\b|(?<![A-Za-z0-9_.])system\()'
+  - id: pickup-at-command-from-raw-string
+    languages: [generic]
+    paths: { include: ["*.swift"] }
+    severity: ERROR
+    message: "AT commands must be built from DialNumber/DTMFDigit (validated), never from raw strings."
+    pattern-regex: '"ATD\\\('

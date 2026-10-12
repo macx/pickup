@@ -1,0 +1,46 @@
+# CI for the tap repository macx/homebrew-tap (template; copy to .github/workflows/ci.yml in that repository).
+# Runs brew style and brew audit on every cask. No secrets, read-only token.
+name: tap-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tap-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_ANALYTICS: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Make this checkout the tap "macx/tap" without a third-party setup action.
+      - name: Register the checkout as the tap
+        run: |
+          taps="$(brew --repository)/Library/Taps/macx"
+          mkdir -p "$taps"
+          ln -sfn "$GITHUB_WORKSPACE" "$taps/homebrew-tap"
+          brew tap-info macx/tap
+
+      - name: brew style
+        run: brew style --cask macx/tap/pickup
+
+      - name: brew audit (online, strict)
+        run: brew audit --cask --strict --online macx/tap/pickup
+
+      - name: livecheck
+        run: brew livecheck --cask macx/tap/pickup
