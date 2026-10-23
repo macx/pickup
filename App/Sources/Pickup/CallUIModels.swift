@@ -117,4 +117,3 @@ struct HangUpProgress: Equatable {
         if attempt == self.attempt { callID = nil }
     }
 }
-
