@@ -93,23 +93,25 @@ final class CallScenarioUITests: PickupUITestCase {
         XCTAssertTrue(waitGone("call-hud", timeout: 5), "the HUD closes after hanging up")
     }
 
-    /// During a call the status item focuses the HUD instead of opening the popover; only then does the
-    /// End Call has focus, Esc does nothing and Return ends the call.
-    func testStatusItemFocusesTheHUDAndReturnEndsTheCall() throws {
+    /// A call accepted in Pickup keeps the keyboard focus in Pickup: End Call has focus, so Return can end
+    /// the call. During the call the status item focuses the HUD instead of opening the popover.
+    ///
+    /// Return and Esc themselves are not tested here: key events posted to the process do not reach the
+    /// non-activating call panel while Pickup is not the active app (real key presses do). They are part
+    /// of the manual hardware check.
+    func testAcceptedCallKeepsFocusOnEndCall() throws {
         try launch("incoming-accept")
         waitForBanner()
         XCTAssertTrue(element("banner-accept").press())
         XCTAssertTrue(waitExists("hud-timer"))
-        XCTAssertFalse(element("hud-hangup").isFocused, "End Call has focus only after the HUD was focused")
+        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "End Call has focus after accepting in Pickup")
         XCTAssertTrue(element("status-item").press())
-        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "the status item did not focus End Call")
+        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "the status item keeps End Call focused")
         XCTAssertFalse(exists("popover-root"), "the popover must not open during a call")
         screenshot("hud-focused", of: "call-hud")
-        keyboard.press(Key.escape)
-        XCTAssertFalse(Wait.until(1.5) { !self.exists("hud-hangup") }, "Esc must not end the call")
-        keyboard.press(Key.returnKey)
+        XCTAssertTrue(element("hud-hangup").press())
         // Hung up on the Mac: the HUD closes without an ended state.
-        XCTAssertTrue(waitGone("call-hud", timeout: 5), "Return did not end the call")
+        XCTAssertTrue(waitGone("call-hud", timeout: 5), "the HUD did not close after hanging up")
     }
 
     // MARK: Outgoing
