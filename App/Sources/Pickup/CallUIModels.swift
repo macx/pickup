@@ -94,3 +94,27 @@ enum EndedCallPresentation {
         return isOutgoing || wasConnected || failedOrLinkLost
     }
 }
+
+/// Progress of End Call pressed on this Mac, until the phone ends the call. Cleared when the phone
+/// rejects the command (the user can retry at once) or when an attempt times out; a timeout of an
+/// earlier attempt never clears a later retry.
+struct HangUpProgress: Equatable {
+    private(set) var callID: UUID?
+    private(set) var attempt = 0
+
+    func isEnding(_ id: UUID) -> Bool { callID == id }
+
+    /// Starts an attempt and returns its number (pass it to `timedOut`).
+    mutating func start(_ id: UUID) -> Int {
+        callID = id
+        attempt += 1
+        return attempt
+    }
+
+    mutating func commandFailed() { callID = nil }
+
+    mutating func timedOut(attempt: Int) {
+        if attempt == self.attempt { callID = nil }
+    }
+}
+

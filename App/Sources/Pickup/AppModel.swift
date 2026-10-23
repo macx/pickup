@@ -72,8 +72,8 @@ final class AppModel {
         return DiagnosticLog()
     }()
     @ObservationIgnored private var dismissedCallID: UUID?
-    /// Call the user is ending on this Mac; set until the phone ends it (or the request fails or times out).
-    @ObservationIgnored private var endingCallID: UUID?
+    /// End Call pressed on this Mac and not yet confirmed by the phone.
+    @ObservationIgnored private var hangUp = HangUpProgress()
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var stuckTask: Task<Void, Never>?
     @ObservationIgnored private var showCannotConnect = false
@@ -223,6 +223,8 @@ final class AppModel {
         // Notices from the engine.
         if let failure = engine.lastCommandFailure, failure.date != seenFailureDate {
             seenFailureDate = failure.date
+            // The phone rejected the hang-up (asynchronously): End Call is usable again right away.
+            if failure.command == .endCall { hangUp.commandFailed() }
             Task { self.showNotice(commandFailureText()) }
         }
         if let fallback = engine.lastAudioFallback, fallback.date != seenFallbackDate {
@@ -243,13 +245,13 @@ final class AppModel {
             case .dialing:
                 active = activeInfo(call, party: party, phase: call.isRemoteAlerting ? .ringing : .dialing,
                                     engine: engine, phoneName: phoneName)
-                active?.isEnding = endingCallID == call.id
+                active?.isEnding = hangUp.isEnding(call.id)
             case .active:
                 active = activeInfo(call, party: party, phase: .active, engine: engine, phoneName: phoneName)
-                active?.isEnding = endingCallID == call.id
+                active?.isEnding = hangUp.isEnding(call.id)
             case .held:
                 active = activeInfo(call, party: party, phase: .held, engine: engine, phoneName: phoneName)
-                active?.isEnding = endingCallID == call.id
+                active?.isEnding = hangUp.isEnding(call.id)
             case .ended where EndedCallPresentation.showsEndedState(
                 reasonEndedOnMac: call.endReason == .hungUp || call.endReason == .cancelled,
                 isOutgoing: call.direction == .outgoing, wasConnected: call.connectedAt != nil,
@@ -350,22 +352,21 @@ final class AppModel {
     /// End Call in the HUD: the button shows progress until the phone confirms (usually 1–2 s). If the
     /// command fails, or the phone has not ended the call after 10 s, the button is usable again.
     private func endCallFromMac() {
-        guard let engine, let call = engine.call, call.phase.isLive, endingCallID != call.id else { return }
-        let id = call.id
-        endingCallID = id
+        guard let engine, let call = engine.call, call.phase.isLive, !hangUp.isEnding(call.id) else { return }
+        let attempt = hangUp.start(call.id)
         apply()
         do {
             try engine.endCall()
         } catch {
-            endingCallID = nil
+            hangUp.commandFailed()
             showNotice(error.pickupMessage)
             apply()
             return
         }
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(10))
-            guard let self, self.endingCallID == id else { return }
-            self.endingCallID = nil
+            guard let self else { return }
+            self.hangUp.timedOut(attempt: attempt)
             self.apply()
         }
     }
