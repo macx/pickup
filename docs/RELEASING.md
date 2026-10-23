@@ -196,7 +196,9 @@ pnpm install --frozen-lockfile && pnpm release:dry-run         # on a release/* 
 ```
 
 `PICKUP_SKIP_VERIFY=1` is accepted for release builds only when they are ad-hoc signed. CI builds the same unsigned
-DMG and ZIP on every push to main and every pull request (artifact `pickup-unsigned-<sha>`, kept 7 days).
+DMG and ZIP on every pull request and every push to main (artifact `pickup-unsigned-<sha>`, kept 7 days). The push of
+a release commit skips ci.yml, because release.yml runs the same CI for that commit; release.yml itself starts only
+when a push changes `VERSION`. So every commit gets exactly one CI run.
 
 ## Verification
 
