@@ -350,7 +350,7 @@ final class AppModel {
     /// End Call in the HUD: the button shows progress until the phone confirms (usually 1–2 s). If the
     /// command fails, or the phone has not ended the call after 10 s, the button is usable again.
     private func endCallFromMac() {
-        guard let engine, let call = engine.call, call.phase.isLive else { return }
+        guard let engine, let call = engine.call, call.phase.isLive, endingCallID != call.id else { return }
         let id = call.id
         endingCallID = id
         apply()
