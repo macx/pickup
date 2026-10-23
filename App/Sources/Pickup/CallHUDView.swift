@@ -34,24 +34,21 @@ struct CallHUDView: View {
                 }
             } else if info.phase != .ended {
                 Text("Call audio is on \(info.phoneName)")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let waiting = info.waiting {
                 Text("Call waiting: \(waiting.primaryText ?? String(localized: "Unknown caller"))")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let notice = info.notice {
-                Text(verbatim: notice)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                StatusMessage(text: notice)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.updatesFrequently)
             }
             if info.phase == .ended {
@@ -93,9 +90,9 @@ struct CallHUDView: View {
     private var statusLine: some View {
         switch info.phase {
         case .dialing:
-            Text("Calling…").font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
+            Text("Calling…").font(.body).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
         case .ringing:
-            Text("Ringing…").font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
+            Text("Ringing…").font(.body).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
         case .active:
             if let start = info.startedAt {
                 // Re-evaluated once a second. The text and the accessibility value are the same elapsed time;
@@ -103,7 +100,7 @@ struct CallHUDView: View {
                 TimelineView(.periodic(from: start, by: 1)) { context in
                     let elapsed = context.date.timeIntervalSince(start)
                     Text(verbatim: CallDurationFormat.string(elapsed))
-                        .font(.subheadline.monospacedDigit())
+                        .font(.body.monospacedDigit())
                         .foregroundStyle(.secondary)
                         .accessibilityLabel(Text("Call duration"))
                         .accessibilityValue(Text(verbatim: CallDurationFormat.spoken(elapsed)))
@@ -112,13 +109,13 @@ struct CallHUDView: View {
                 }
             }
         case .held:
-            Text("On hold").font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
+            Text("On hold").font(.body).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
         case .ended:
             if let text = info.endText {
-                Text(verbatim: text).font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
+                Text(verbatim: text).font(.body).foregroundStyle(.secondary).accessibilityIdentifier("hud-state")
             }
             if let duration = info.endDuration {
-                Text(verbatim: duration).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text(verbatim: duration).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
             }
         }
     }
@@ -128,9 +125,10 @@ struct CallHUDView: View {
             AvatarView(party: info.party, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: title)
-                    .font(.headline)
-                    .lineLimit(1)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(2)
                     .truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel(Text("Call with \(title)"))
                     .accessibilityIdentifier("hud-caller")
                 statusLine

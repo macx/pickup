@@ -69,13 +69,18 @@ struct LinkCallConfirmationView: View {
                     Label(String(localized: "This link wants to send a service code (e.g. call forwarding) to your phone.",
                                  comment: "Strong warning in the confirmation window when a tel: link contains * or #. Such codes can change phone settings such as call forwarding."),
                           systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                        .font(.body.weight(.semibold))
+                        .symbolRenderingMode(.multicolor)
                 }
                 Text(String(localized: "Pickup will place this call on \(phone).",
                             comment: "Confirmation detail for a tel: link. %@ is the phone name, or \"your phone\"."))
                     .foregroundStyle(.secondary)
                 if let message = error ?? blocker {
-                    Text(verbatim: message).font(.callout).foregroundStyle(error == nil ? Color.secondary : Color.red)
+                    if error != nil {
+                        StatusMessage(text: message, kind: .error)
+                    } else {
+                        Text(verbatim: message).font(.callout).foregroundStyle(.secondary)
+                    }
                 }
             } else {
                 Text("This phone link cannot be used.").font(.headline)

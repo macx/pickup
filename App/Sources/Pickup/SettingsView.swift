@@ -224,8 +224,7 @@ struct SettingsView: View {
     }
 
     private func errorLine(_ text: String) -> some View {
-        Text(verbatim: text).font(.caption).foregroundStyle(.red)
-            .fixedSize(horizontal: false, vertical: true)
+        StatusMessage(text: text, kind: .error, font: .caption)
     }
 }
 
