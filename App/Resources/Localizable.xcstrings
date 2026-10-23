@@ -2448,6 +2448,42 @@
           }
         }
       }
+    },
+    "Press Esc to end the call.": {
+      "comment": "Keyboard hint under the End Call button, shown only while the call window has keyboard focus.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press Esc to end the call."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Esc beenden Sie den Anruf."
+          }
+        }
+      }
+    },
+    "Press Return to accept or Esc to decline.": {
+      "comment": "Keyboard hint at the bottom of the incoming-call banner, shown only while the banner has keyboard focus.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press Return to accept or Esc to decline."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Return nehmen Sie an, mit Esc lehnen Sie ab."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

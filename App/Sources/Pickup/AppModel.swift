@@ -12,6 +12,10 @@ final class CallUIModel {
     var incoming: IncomingCallInfo?
     var active: ActiveCallInfo?
     var actions = CallActions()
+    /// The incoming-call banner or the call HUD has keyboard focus (is the key window), so Return and
+    /// Esc act on it. The panels then show a focus ring and the keyboard hint.
+    var bannerHasFocus = false
+    var hudHasFocus = false
 }
 
 /// Owns the transport and the engine, binds them to the UI models and routes system events

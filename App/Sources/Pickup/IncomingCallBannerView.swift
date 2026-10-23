@@ -4,10 +4,25 @@ import SwiftUI
 struct IncomingCallBannerView: View {
     let info: IncomingCallInfo
     let actions: CallActions
+    var hasFocus = false
 
     private var title: String { info.party.primaryText ?? String(localized: "Unknown caller") }
 
     var body: some View {
+        VStack(spacing: 8) {
+            content
+            if hasFocus {
+                KeyboardHint(text: "Press Return to accept or Esc to decline.")
+            }
+        }
+        .padding(14)
+        .frame(width: 420)
+        .callSurface(hasFocus: hasFocus)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("incoming-banner")
+    }
+
+    private var content: some View {
         HStack(spacing: 12) {
             AvatarView(party: info.party, size: 48)
             VStack(alignment: .leading, spacing: 2) {
@@ -47,11 +62,6 @@ struct IncomingCallBannerView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(14)
-        .frame(width: 420)
-        .callSurface()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("incoming-banner")
     }
 }
 

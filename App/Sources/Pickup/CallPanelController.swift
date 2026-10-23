@@ -28,6 +28,19 @@ final class CallPanel: NSPanel {
     /// Top-right corner the panel was last positioned at (fallback when the frame has collapsed).
     var anchorCorner = NSPoint.zero
 
+    /// Called when the panel gains (`true`) or loses (`false`) keyboard focus.
+    var onKeyChange: ((Bool) -> Void)?
+
+    override func becomeKey() {
+        super.becomeKey()
+        onKeyChange?(true)
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        onKeyChange?(false)
+    }
+
     // Can become key (on click) without activating the app.
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -79,9 +92,11 @@ final class CallPanelController {
         banner = update(banner, visible: model.incoming != nil, topInset: 12) {
             IncomingCallRoot(model: model)
         }
+        banner?.onKeyChange = { [weak model] in model?.bannerHasFocus = $0 }
         hud = update(hud, visible: model.active != nil, topInset: 12) {
             CallHUDRoot(model: model)
         }
+        hud?.onKeyChange = { [weak model] in model?.hudHasFocus = $0 }
     }
 
     private func update<Content: View>(_ panel: CallPanel?, visible: Bool, topInset: CGFloat,
@@ -163,7 +178,7 @@ private struct IncomingCallRoot: View {
     let model: CallUIModel
     var body: some View {
         if let info = model.incoming {
-            IncomingCallBannerView(info: info, actions: model.actions)
+            IncomingCallBannerView(info: info, actions: model.actions, hasFocus: model.bannerHasFocus)
         }
     }
 }
@@ -172,7 +187,7 @@ private struct CallHUDRoot: View {
     let model: CallUIModel
     var body: some View {
         if let info = model.active {
-            CallHUDView(info: info, actions: model.actions)
+            CallHUDView(info: info, actions: model.actions, hasFocus: model.hudHasFocus)
         }
     }
 }

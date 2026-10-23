@@ -4,6 +4,7 @@ import SwiftUI
 struct CallHUDView: View {
     let info: ActiveCallInfo
     let actions: CallActions
+    var hasFocus = false
     @State private var showKeypad = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -76,11 +77,14 @@ struct CallHUDView: View {
                 .buttonStyle(PressableStyle())
                 .keyboardShortcut(.cancelAction)
                 .accessibilityIdentifier("hud-hangup")
+                if hasFocus {
+                    KeyboardHint(text: "Press Esc to end the call.")
+                }
             }
         }
         .padding(16)
         .frame(width: 320)
-        .callSurface()
+        .callSurface(hasFocus: hasFocus)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("call-hud")
     }
