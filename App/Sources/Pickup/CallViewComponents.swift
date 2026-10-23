@@ -16,6 +16,37 @@ extension View {
     func callSurface() -> some View { modifier(CallSurface()) }
 }
 
+/// Makes a call panel's primary button behave like the default button of a macOS dialog: while the
+/// panel is the key window the button has keyboard focus (the system draws the focus ring) and Return
+/// presses it. Without focus nothing reacts to the keyboard.
+///
+/// In the borderless call panels a focused button swallows Return and Esc before any
+/// `.keyboardShortcut` sees them, so Return is handled here with `onKeyPress` (Space presses the
+/// focused button as usual). Esc, where a panel uses it, needs `onKeyPress` on the panel as well.
+private struct CallPanelDefaultButton: ViewModifier {
+    let panelHasFocus: Bool
+    let action: () -> Void
+    @FocusState private var focused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focusable()
+            .focused($focused)
+            .onKeyPress(.return) {
+                action()
+                return .handled
+            }
+            .onAppear { focused = panelHasFocus }
+            .onChange(of: panelHasFocus) { _, hasFocus in focused = hasFocus }
+    }
+}
+
+extension View {
+    func callPanelDefaultButton(panelHasFocus: Bool, action: @escaping () -> Void) -> some View {
+        modifier(CallPanelDefaultButton(panelHasFocus: panelHasFocus, action: action))
+    }
+}
+
 /// Keyboard hint shown under the buttons while a call panel has keyboard focus.
 struct KeyboardHint: View {
     let text: LocalizedStringKey
