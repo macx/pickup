@@ -5,7 +5,7 @@
 ### Features
 
 * focus the call panel from the menu bar; Return ends a focused call ([#2](https://github.com/macx/pickup/issues/2)) ([61068ee](https://github.com/macx/pickup/commit/61068eee883cc33e8ff2c93e131d43e295d837d6))
-* larger text and higher contrast in the call windows ([#3](https://github.com/macx/pickup/issues/3)) ([701dd2c](https://github.com/macx/pickup/commit/701dd2c59c1515329481fb755119fdf325c32ee9)), references [#248A3D](https://github.com/macx/pickup/issues/248A3D) [#C93400](https://github.com/macx/pickup/issues/C93400)
-* show progress while hanging up and close the HUD afterwards ([#4](https://github.com/macx/pickup/issues/4)) ([780e8a6](https://github.com/macx/pickup/commit/780e8a65d5779cf056084d78e3eaea0651619936)), references [#2](https://github.com/macx/pickup/issues/2) [#3](https://github.com/macx/pickup/issues/3)
+* larger text and higher contrast in the call windows ([#3](https://github.com/macx/pickup/issues/3)) ([701dd2c](https://github.com/macx/pickup/commit/701dd2c59c1515329481fb755119fdf325c32ee9))
+* show progress while hanging up and close the HUD afterwards ([#4](https://github.com/macx/pickup/issues/4)) ([780e8a6](https://github.com/macx/pickup/commit/780e8a65d5779cf056084d78e3eaea0651619936))
 
 ## 0.1.0 (2026-10-13)
