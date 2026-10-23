@@ -48,6 +48,21 @@ final class CallPanelController {
         track()
     }
 
+    /// The call panel on screen: the incoming-call banner, else the call HUD.
+    private var visibleCallPanel: CallPanel? {
+        [banner, hud].compactMap { $0 }.first { $0.isVisible && $0.alphaValue > 0 }
+    }
+
+    var isCallPanelVisible: Bool { visibleCallPanel != nil }
+
+    /// Brings the visible call panel to the front and gives it keyboard focus, on an explicit user action
+    /// (click on the menu bar icon or the global shortcut). It still does not activate the app.
+    func focusCallPanel() {
+        guard let panel = visibleCallPanel else { return }
+        panel.orderFrontRegardless()
+        panel.makeKey()
+    }
+
     private func track() {
         withObservationTracking {
             _ = (model.incoming != nil, model.active != nil)
