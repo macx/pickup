@@ -118,6 +118,7 @@ final class CallScenarioUITests: PickupUITestCase {
         dialWithKeyboard("jane")
         XCTAssertTrue(waitText("hud-state") { $0 == self.s("Calling…", "Anruf läuft …") }, "state '\(hudState())'")
         XCTAssertTrue(element("hud-caller").allText.contains("Jane Doe"))
+        XCTAssertTrue(waitExists("keyboard-hint", timeout: 3), "a call placed from Pickup focuses the HUD (Return ends it)")
         advance()                       // remote side alerting
         XCTAssertTrue(waitText("hud-state") { $0 == self.s("Ringing…", "Es klingelt…") }, "state '\(hudState())'")
         advance()                       // answered

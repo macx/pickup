@@ -97,6 +97,11 @@ final class CallPanelController {
             CallHUDRoot(model: model)
         }
         hud?.onKeyChange = { [weak model] in model?.hudHasFocus = $0 }
+        if model.focusHUDWhenShown, model.active != nil {
+            model.focusHUDWhenShown = false
+            // After the popover (or the link confirmation) has closed and the previous app is active again.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.focusCallPanel() }
+        }
     }
 
     private func update<Content: View>(_ panel: CallPanel?, visible: Bool, topInset: CGFloat,

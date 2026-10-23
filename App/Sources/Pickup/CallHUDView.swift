@@ -81,7 +81,7 @@ struct CallHUDView: View {
                 .callPanelDefaultButton(panelHasFocus: hasFocus, action: actions.endCall)
                 .accessibilityIdentifier("hud-hangup")
                 if hasFocus {
-                    KeyboardHint(text: "Press Return to end the call.")
+                    KeyboardHint(text: "↩ End Call", spoken: "Press Return to end the call.")
                 }
             }
         }

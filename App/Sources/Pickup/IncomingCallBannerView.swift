@@ -12,7 +12,7 @@ struct IncomingCallBannerView: View {
         VStack(spacing: 8) {
             content
             if hasFocus {
-                KeyboardHint(text: "Press Return to accept or Esc to decline.")
+                KeyboardHint(text: "↩ Accept / ⎋ Decline", spoken: "Press Return to accept or Esc to decline.")
             }
         }
         // Esc declines (like Cancel in a dialog); `.keyboardShortcut(.cancelAction)` alone does not fire

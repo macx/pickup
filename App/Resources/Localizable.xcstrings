@@ -2450,7 +2450,7 @@
       }
     },
     "Press Return to accept or Esc to decline.": {
-      "comment": "Keyboard hint at the bottom of the incoming-call banner, shown only while the banner has keyboard focus.",
+      "comment": "VoiceOver label of the keyboard hint in the incoming-call banner (the visible hint shows \"↩ Accept / ⎋ Decline\"), while the banner has keyboard focus.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2468,7 +2468,7 @@
       }
     },
     "Press Return to end the call.": {
-      "comment": "Keyboard hint under the End Call button, shown only while the call window has keyboard focus (the End Call button is then focused).",
+      "comment": "VoiceOver label of the keyboard hint under the End Call button (the visible hint shows \"↩ End Call\"), while the call window has keyboard focus.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -2481,6 +2481,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mit Return beenden Sie den Anruf."
+          }
+        }
+      }
+    },
+    "↩ End Call": {
+      "comment": "Short keyboard hint under the End Call button while the call window has keyboard focus. ↩ is the Return key symbol; keep it.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ End Call"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ Auflegen"
+          }
+        }
+      }
+    },
+    "↩ Accept / ⎋ Decline": {
+      "comment": "Short keyboard hint in the incoming-call banner while it has keyboard focus. ↩ is the Return key, ⎋ the Escape key symbol; keep both.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ Accept / ⎋ Decline"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↩ Annehmen / ⎋ Ablehnen"
           }
         }
       }

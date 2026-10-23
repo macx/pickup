@@ -16,6 +16,9 @@ final class CallUIModel {
     /// shortcuts act. The panels then show the keyboard hint; the HUD also focuses End Call.
     var bannerHasFocus = false
     var hudHasFocus = false
+    /// Set when the user places a call from Pickup: the call HUD takes keyboard focus once it is shown,
+    /// so Return can end the call right away. Calls started on the phone and incoming calls never take focus.
+    var focusHUDWhenShown = false
 }
 
 /// Owns the transport and the engine, binds them to the UI models and routes system events
@@ -356,6 +359,7 @@ final class AppModel {
         guard let engine else { return CallEngineError.notConnected.localizedText }
         do {
             try engine.dial(number, allowServiceCode: allowServiceCode)
+            callUI.focusHUDWhenShown = true
             return nil
         } catch {
             return error.pickupMessage
