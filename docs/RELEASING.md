@@ -47,15 +47,15 @@ main ── PRs (squash) ──●──●──●─────────�
                                                  package.json, CHANGELOG.md, one commit, no tag); CI runs on the PR
 
 release.yml:  plan ─> ci (all jobs, this commit) ─> release [environment "release", approval] ─> homebrew (signed only)
-              plan: release only if the commit is "chore(release): vX.Y.Z" or changes VERSION, and vX.Y.Z is not tagged
+              plan: release only if the push changes VERSION and vX.Y.Z is not tagged (scripts/release-decision.sh)
               release: build; signed: sign + notarise + staple; unsigned (0.x only): ad-hoc, *-UNSIGNED files;
                        GitHub Release (notes = CHANGELOG section; pre-release while 0.x); publishing creates tag vX.Y.Z
 ```
 
 1. **R1 (David)** Actions > `prepare-release` > Run workflow on `main`. Version: empty (computed from the
    Conventional Commits since the last tag) or `patch` / `minor` / `major` / `X.Y.Z`.
-   **The first release is `0.1.0`:** with no tag yet, release-it would start from 0.0.0, so enter `0.1.0` explicitly
-   (the workflow refuses a computed version lower than `VERSION`).
+   The release commit must bump `VERSION`: only a push that changes `VERSION` is released. (The first release,
+   `0.1.0`, was entered explicitly because release-it would have started from 0.0.0 without a tag.)
 2. The workflow cuts `release/vX.Y.Z` from `main`, runs release-it there (`pnpm exec release-it [version] --ci`), pushes
    the branch and opens the pull request `chore(release): vX.Y.Z` into `main` with the changelog section and a
    checklist. Running it again replaces the branch and updates the pull request.
@@ -196,7 +196,12 @@ pnpm install --frozen-lockfile && pnpm release:dry-run         # on a release/* 
 ```
 
 `PICKUP_SKIP_VERIFY=1` is accepted for release builds only when they are ad-hoc signed. CI builds the same unsigned
-DMG and ZIP on every push to main and every pull request (artifact `pickup-unsigned-<sha>`, kept 7 days).
+DMG and ZIP on every pull request and every push to main (artifact `pickup-unsigned-<sha>`, kept 7 days).
+
+**One CI run per commit.** `release.yml` starts only for pushes that change `VERSION`. `scripts/release-decision.sh`
+decides for both workflows whether a commit is released (official repository, `VERSION` changed against the parent,
+tag missing; or a manual run of `release.yml`). For such a commit the `route` job of `ci.yml` skips the push run,
+because `release.yml` runs the same CI for it; for every other commit the push run of `ci.yml` is the only one.
 
 ## Verification
 
