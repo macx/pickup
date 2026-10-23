@@ -17,7 +17,7 @@ struct IncomingCallBannerView: View {
         }
         .padding(14)
         .frame(width: 420)
-        .callSurface(hasFocus: hasFocus)
+        .callSurface()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("incoming-banner")
     }

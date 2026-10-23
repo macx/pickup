@@ -12,8 +12,8 @@ final class CallUIModel {
     var incoming: IncomingCallInfo?
     var active: ActiveCallInfo?
     var actions = CallActions()
-    /// The incoming-call banner or the call HUD has keyboard focus (is the key window), so Return and
-    /// Esc act on it. The panels then show a focus ring and the keyboard hint.
+    /// The incoming-call banner or the call HUD has keyboard focus (is the key window), so its keyboard
+    /// shortcuts act. The panels then show the keyboard hint; the HUD also focuses End Call.
     var bannerHasFocus = false
     var hudHasFocus = false
 }

@@ -2,26 +2,21 @@ import AppKit
 import SwiftUI
 
 /// Rounded material surface shared by banner and HUD (matches system notification banners).
-/// With keyboard focus the hairline becomes a focus ring in the system's focus color, so the user
-/// can see that Return and Esc act on this panel.
 struct CallSurface: ViewModifier {
-    var hasFocus = false
-
     func body(content: Content) -> some View {
         content
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(hasFocus ? AnyShapeStyle(Color(nsColor: .keyboardFocusIndicatorColor)) : AnyShapeStyle(.separator),
-                              lineWidth: hasFocus ? 3 : 0.5))
+                .strokeBorder(.separator, lineWidth: 0.5))
             .padding(12) // room for the window shadow
     }
 }
 
 extension View {
-    func callSurface(hasFocus: Bool = false) -> some View { modifier(CallSurface(hasFocus: hasFocus)) }
+    func callSurface() -> some View { modifier(CallSurface()) }
 }
 
-/// Keyboard hint shown under the buttons while a call panel has focus.
+/// Keyboard hint shown under the buttons while a call panel has keyboard focus.
 struct KeyboardHint: View {
     let text: LocalizedStringKey
 

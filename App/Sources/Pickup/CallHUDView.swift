@@ -6,6 +6,8 @@ struct CallHUDView: View {
     let actions: CallActions
     var hasFocus = false
     @State private var showKeypad = false
+    /// While the HUD has keyboard focus, the focus sits on End Call and Return presses it.
+    @FocusState private var endCallFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var title: String { info.party.primaryText ?? String(localized: "Unknown caller") }
@@ -75,16 +77,28 @@ struct CallHUDView: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(PressableStyle())
-                .keyboardShortcut(.cancelAction)
+                .overlay {
+                    if endCallFocused {
+                        Capsule().strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 3).padding(-4)
+                    }
+                }
+                .focusable()
+                .focusEffectDisabled()
+                .focused($endCallFocused)
+                // Return only reaches the button while the HUD is the key window, i.e. after the user
+                // focused it (menu bar icon, global shortcut or a click on the HUD). Esc does nothing.
+                .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("hud-hangup")
+                .onAppear { endCallFocused = hasFocus }
+                .onChange(of: hasFocus) { _, focused in endCallFocused = focused }
                 if hasFocus {
-                    KeyboardHint(text: "Press Esc to end the call.")
+                    KeyboardHint(text: "Press Return to end the call.")
                 }
             }
         }
         .padding(16)
         .frame(width: 320)
-        .callSurface(hasFocus: hasFocus)
+        .callSurface()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("call-hud")
     }

@@ -94,18 +94,20 @@ final class CallScenarioUITests: PickupUITestCase {
     }
 
     /// During a call the status item focuses the HUD instead of opening the popover; only then does the
-    /// HUD show the Esc hint, and Esc ends the call.
-    func testStatusItemFocusesTheHUDAndEscEndsTheCall() throws {
+    /// HUD show the Return hint, Esc does nothing and Return ends the call.
+    func testStatusItemFocusesTheHUDAndReturnEndsTheCall() throws {
         try launch("incoming-accept")
         waitForBanner()
         XCTAssertTrue(element("banner-accept").press())
         XCTAssertTrue(waitExists("hud-timer"))
-        XCTAssertFalse(exists("keyboard-hint"), "the HUD shows the Esc hint only while it has focus")
+        XCTAssertFalse(exists("keyboard-hint"), "the HUD shows the Return hint only while it has focus")
         XCTAssertTrue(element("status-item").press())
         XCTAssertTrue(waitExists("keyboard-hint"), "the status item did not focus the HUD")
         XCTAssertFalse(exists("popover-root"), "the popover must not open during a call")
         screenshot("hud-focused", of: "call-hud")
         keyboard.press(Key.escape)
+        XCTAssertFalse(Wait.until(1.5) { !self.exists("hud-hangup") }, "Esc must not end the call")
+        keyboard.press(Key.returnKey)
         assertEnded(callEnded)
     }
 
