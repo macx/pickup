@@ -13,7 +13,7 @@ final class CallUIModel {
     var active: ActiveCallInfo?
     var actions = CallActions()
     /// The incoming-call banner or the call HUD has keyboard focus (is the key window), so its keyboard
-    /// shortcuts act. The panels then show the keyboard hint; the HUD also focuses End Call.
+    /// shortcuts act and the primary button (Accept, End Call) has keyboard focus.
     var bannerHasFocus = false
     var hudHasFocus = false
     /// Set when the user places a call from Pickup: the call HUD takes keyboard focus once it is shown,

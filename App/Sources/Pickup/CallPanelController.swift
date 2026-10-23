@@ -53,10 +53,9 @@ final class CallPanelController {
     private let log: (String) -> Void
     private var banner: CallPanel?
     private var hud: CallPanel?
-    /// After a call placed from Pickup the HUD keeps (re)taking focus until this time: closing the
-    /// popover reactivates the previous app, and that activation can land after the HUD became key.
+    /// After a call placed from Pickup the HUD takes focus back until this time: closing the popover
+    /// reactivates the previous app, and that activation can land after the HUD became key.
     private var keepHUDFocusedUntil: Date?
-    private var activationObserver: NSObjectProtocol?
 
     /// Frames of the panels that are currently on screen (used by the call-cycle self test).
     var debugVisibleFrames: [NSRect] { [banner, hud].compactMap { $0 }.filter(\.isVisible).map(\.frame) }
@@ -65,21 +64,16 @@ final class CallPanelController {
         self.model = model
         self.log = log
         track()
-        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-        ) { [weak self] note in
-            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            let bundleID = app?.bundleIdentifier ?? "unknown"
-            MainActor.assumeIsolated { self?.refocusHUDIfPending(activated: bundleID) }
-        }
     }
 
-    /// `isKeyWindow` can stay true while another app has the keyboard, so the HUD is focused again on
-    /// every activation in the short window after dialing.
-    private func refocusHUDIfPending(activated bundleID: String) {
-        guard let until = keepHUDFocusedUntil, Date() < until, let hud, hud.isVisible else { return }
-        log("app activated right after dialing (\(bundleID)); focusing the call HUD again")
-        focusCallPanel()
+    /// The HUD lost focus shortly after a call placed from Pickup (the previous app came back to the
+    /// front): take it back once that activation has finished.
+    private func refocusHUDIfPending() {
+        guard let until = keepHUDFocusedUntil, Date() < until else { return }
+        keepHUDFocusedUntil = nil
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown"
+        log("call HUD lost focus right after dialing (front: \(front)); focusing it again")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.focusCallPanel() }
     }
 
     /// The call panel on screen: the incoming-call banner, else the call HUD.
@@ -126,12 +120,13 @@ final class CallPanelController {
         hud?.onKeyChange = { [weak self] in
             self?.model.hudHasFocus = $0
             self?.log("call HUD \($0 ? "has" : "lost") keyboard focus")
+            if !$0 { self?.refocusHUDIfPending() }
         }
         if model.focusHUDWhenShown, model.active != nil {
             model.focusHUDWhenShown = false
             keepHUDFocusedUntil = Date().addingTimeInterval(2)
-            // After the popover (or the link confirmation) has closed and the previous app is active again;
-            // `refocusHUDIfPending` covers an activation that arrives later.
+            // After the popover (or the link confirmation) has closed; `refocusHUDIfPending` takes the focus
+            // back if the previous app's activation lands later.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.log("focusing the call HUD after a call placed from Pickup")
                 self?.focusCallPanel()

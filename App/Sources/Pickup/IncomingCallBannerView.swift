@@ -9,26 +9,6 @@ struct IncomingCallBannerView: View {
     private var title: String { info.party.primaryText ?? String(localized: "Unknown caller") }
 
     var body: some View {
-        VStack(spacing: 8) {
-            content
-            if hasFocus {
-                KeyboardHint(text: "↩ Accept / ⎋ Decline", spoken: "Press Return to accept or Esc to decline.")
-            }
-        }
-        // Esc declines (like Cancel in a dialog); `.keyboardShortcut(.cancelAction)` alone does not fire
-        // while Accept has focus.
-        .onKeyPress(.escape) {
-            actions.decline()
-            return .handled
-        }
-        .padding(14)
-        .frame(width: 420)
-        .callSurface()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("incoming-banner")
-    }
-
-    private var content: some View {
         HStack(spacing: 12) {
             AvatarView(party: info.party, size: 48)
             VStack(alignment: .leading, spacing: 2) {
@@ -68,6 +48,17 @@ struct IncomingCallBannerView: View {
                     .callPanelDefaultButton(panelHasFocus: hasFocus, action: actions.accept)
             }
         }
+        // Esc declines (like Cancel in a dialog); `.keyboardShortcut(.cancelAction)` alone does not fire
+        // while Accept has focus.
+        .onKeyPress(.escape) {
+            actions.decline()
+            return .handled
+        }
+        .padding(14)
+        .frame(width: 420)
+        .callSurface()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("incoming-banner")
     }
 }
 

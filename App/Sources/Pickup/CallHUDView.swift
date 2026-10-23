@@ -80,9 +80,6 @@ struct CallHUDView: View {
                 // on the HUD); then Return ends the call. Esc does nothing here.
                 .callPanelDefaultButton(panelHasFocus: hasFocus, action: actions.endCall)
                 .accessibilityIdentifier("hud-hangup")
-                if hasFocus {
-                    KeyboardHint(text: "↩ End Call", spoken: "Press Return to end the call.")
-                }
             }
         }
         .padding(16)

@@ -47,24 +47,6 @@ extension View {
     }
 }
 
-/// Keyboard hint shown under the buttons while a call panel has keyboard focus. The visible text uses
-/// the key symbols (↩ ⎋); VoiceOver reads the spelled-out sentence instead.
-struct KeyboardHint: View {
-    let text: LocalizedStringKey
-    let spoken: LocalizedStringKey
-
-    var body: some View {
-        Text(text)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel(Text(spoken))
-            .accessibilityIdentifier("keyboard-hint")
-    }
-}
-
 struct AvatarView: View {
     let party: CallParty
     var size: CGFloat
