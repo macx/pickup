@@ -1,9 +1,9 @@
 # Release workflow for Pickup (docs/RELEASING.md).
 #
-# Trigger: a push to main that changes VERSION. Trunk-based: every pull request is squash-merged into main; a release
-# happens when the pushed commit is the squash-merged release pull request from prepare-release.yml
-# ("chore(release): vX.Y.Z") or changes VERSION, and the tag vX.Y.Z does not exist yet. Pushes that do not change
-# VERSION do not start the workflow; a VERSION change whose tag already exists ends after the plan job.
+# Trigger: a push to main that changes VERSION. Trunk-based: every pull request is squash-merged into main; the
+# squash-merged release pull request from prepare-release.yml ("chore(release): vX.Y.Z") bumps VERSION. A release
+# happens when the push changes VERSION and the tag vX.Y.Z does not exist yet (scripts/release-decision.sh, the same
+# rule the push run of ci.yml uses to skip itself). A VERSION change whose tag already exists ends after the plan job.
 #   plan      decide: release or not; version; signed (PICKUP_SIGN_IDENTITY set) or unsigned; pre-release (0.x)
 #   ci        every CI job (reusable ci.yml) on exactly this commit
 #   release   environment "release" (required reviewer): build, then
@@ -31,7 +31,8 @@ name: release
 on:
   push:
     branches: [main]
-    # Every release commit changes VERSION (release-it bumps it), so other pushes do not even start this workflow.
+    # Only a push that changes VERSION can be released (scripts/release-decision.sh; every release commit from
+    # prepare-release bumps VERSION), so other pushes do not start this workflow.
     paths: [VERSION]
   workflow_dispatch: # re-run on main after a failure; does nothing when the version is already released
 
@@ -66,18 +67,12 @@ jobs:
           set -euo pipefail
           [ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::release.yml runs on main only (got $GITHUB_REF)"; exit 1; }
           scripts/set-version.sh --check
-          version="$(scripts/set-version.sh --print)"
           subject="$(git log -1 --format=%s)"
-          parent_version="$(git show HEAD^:VERSION 2>/dev/null | tr -d '[:space:]' || true)"
-          release=false
-          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
-            echo "::notice::v$version is already released; nothing to do."
-          elif [ "$(sed -E 's/ \(#[0-9]+\)$//' <<< "$subject")" = "chore(release): v$version" ] || [ "$parent_version" != "$version" ] \
-               || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            release=true
-          else
-            echo "::notice::not a release commit and VERSION unchanged ($version); nothing to do."
-          fi
+          # The same rule as the push run of ci.yml (route job), so that run is skipped exactly when this one runs CI.
+          decision="$(scripts/release-decision.sh)"
+          release="$(sed -n 's/^release=//p' <<< "$decision")"
+          version="$(sed -n 's/^version=//p' <<< "$decision")"
+          [ "$release" = true ] || echo "::notice::not a release (see release-decision above); nothing to do."
           signed=false; [ -n "$SIGN_IDENTITY" ] && signed=true
           prerelease=false; [ "${version%%.*}" = 0 ] && prerelease=true
           if [ "$release" = true ] && [ "$signed" = false ] && [ "$prerelease" = false ]; then

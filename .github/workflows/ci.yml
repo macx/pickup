@@ -16,9 +16,9 @@
 # Repository guard: the jobs run only in macx/pickup. In any other repository (the private workshop pickup-dev,
 # forks) they are skipped unless the repository variable PICKUP_CI_ENABLED is "true".
 #
-# No duplicate runs: the push of a release commit ("chore(release): vX.Y.Z") skips every job here, because
-# release.yml runs this workflow for exactly that commit before it releases. Inside that call github.workflow is
-# "release", so the condition only matches the push run of this workflow.
+# One CI run per commit: the route job skips this workflow's own push run for a commit that release.yml releases,
+# because release.yml runs this workflow (workflow_call) for exactly that commit. Both decide with
+# scripts/release-decision.sh. Inside that call github.workflow is "release", so the route job lets every job run.
 name: ci
 
 on:
@@ -45,9 +45,34 @@ env:
   HOMEBREW_NO_INSTALL_CLEANUP: "1"
 
 jobs:
+  route:
+    name: route (skip the push run of a release commit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.route.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.workflow == 'ci' && github.event_name == 'push'
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # tags and the parent commit for scripts/release-decision.sh
+      - id: route
+        run: |
+          set -euo pipefail
+          run=true
+          if [ "$GITHUB_WORKFLOW" = ci ] && [ "$GITHUB_EVENT_NAME" = push ]; then
+            if scripts/release-decision.sh | grep -qx 'release=true'; then
+              run=false
+              echo "::notice::release commit: release.yml runs CI for it; skipping this push run"
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   release-tooling:
     name: release tooling (pnpm, release-it)
-    if: "(github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
+    if: needs.route.outputs.run == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: route
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -65,7 +90,8 @@ jobs:
 
   lint:
     name: lint (swiftlint)
-    if: "(github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
+    if: needs.route.outputs.run == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: route
     runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 15
     steps:
@@ -79,7 +105,8 @@ jobs:
 
   localization:
     name: localization check
-    if: "(github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
+    if: needs.route.outputs.run == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: route
     runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 20
     steps:
@@ -93,7 +120,8 @@ jobs:
 
   test:
     name: build and test (unit, scenario, fuzz)
-    if: "(github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
+    if: needs.route.outputs.run == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: route
     runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 45
     steps:
@@ -121,7 +149,8 @@ jobs:
 
   sanitizers:
     name: sanitizers (address, thread)
-    if: "(github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
+    if: needs.route.outputs.run == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: route
     runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 60
     steps:
@@ -138,7 +167,8 @@ jobs:
 
   security:
     name: security (gitleaks, semgrep, security-checks)
-    if: "(github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
+    if: needs.route.outputs.run == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: route
     runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 20
     steps:
@@ -153,8 +183,8 @@ jobs:
 
   build:
     name: build release app (unsigned dry run)
-    if: "(github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
-    needs: [lint, localization, test, sanitizers, security]
+    if: needs.route.outputs.run == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: [route, lint, localization, test, sanitizers, security]
     runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 45
     env:
@@ -180,8 +210,8 @@ jobs:
 
   ui-tests:
     name: UI tests (experimental, opt-in)
-    if: "vars.PICKUP_CI_UI_TESTS == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true') && !(github.workflow == 'ci' && github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(release): v'))"
-    needs: [test]
+    if: needs.route.outputs.run == 'true' && vars.PICKUP_CI_UI_TESTS == 'true' && (github.repository == 'macx/pickup' || vars.PICKUP_CI_ENABLED == 'true')
+    needs: [route, test]
     runs-on: ${{ vars.PICKUP_MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 30
     continue-on-error: true # not a required check: see the header of this file
