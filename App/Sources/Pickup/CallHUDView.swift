@@ -64,15 +64,27 @@ struct CallHUDView: View {
                 .accessibilityIdentifier("hud-close")
             } else {
                 Button(action: actions.endCall) {
-                    Label("End Call", systemImage: "phone.down.fill")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                        .background(Color.red, in: Capsule())
-                        .contentShape(Capsule())
-                        .contentShape(.focusEffect, Capsule())
+                    Group {
+                        if info.isEnding {
+                            // The phone confirms the hang-up after a second or two; until then the button
+                            // shows progress instead of looking unresponsive.
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small).environment(\.colorScheme, .dark)
+                                Text("Ending…")
+                            }
+                        } else {
+                            Label("End Call", systemImage: "phone.down.fill")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                    .background(Color.red.opacity(info.isEnding ? 0.7 : 1), in: Capsule())
+                    .contentShape(Capsule())
+                    .contentShape(.focusEffect, Capsule())
                 }
                 .buttonStyle(PressableStyle())
+                .disabled(info.isEnding)
                 // The HUD is key only after the user focused it (menu bar icon, global shortcut or a click
                 // on the HUD); then Return ends the call. Esc does nothing here.
                 .callPanelDefaultButton(panelHasFocus: hasFocus, action: actions.endCall)

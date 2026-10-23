@@ -88,27 +88,30 @@ final class CallScenarioUITests: PickupUITestCase {
         XCTAssertTrue(element("banner-accept").press())
         XCTAssertTrue(waitExists("hud-timer"))
         XCTAssertTrue(element("hud-hangup").press())
-        assertEnded(callEnded)
-        XCTAssertTrue(element("hud-close").press())
-        XCTAssertTrue(waitGone("call-hud"), "Close dismisses the ended HUD")
+        // Hung up on the Mac: no "ended" state, the HUD closes once the phone confirms.
+        XCTAssertFalse(exists("hud-close"), "a call ended on the Mac shows no ended state")
+        XCTAssertTrue(waitGone("call-hud", timeout: 5), "the HUD closes after hanging up")
     }
 
-    /// During a call the status item focuses the HUD instead of opening the popover; only then does the
-    /// End Call has focus, Esc does nothing and Return ends the call.
-    func testStatusItemFocusesTheHUDAndReturnEndsTheCall() throws {
+    /// A call accepted in Pickup keeps the keyboard focus in Pickup: End Call has focus, so Return can end
+    /// the call. During the call the status item focuses the HUD instead of opening the popover.
+    ///
+    /// Return and Esc themselves are not tested here: key events posted to the process do not reach the
+    /// non-activating call panel while Pickup is not the active app (real key presses do). They are part
+    /// of the manual hardware check.
+    func testAcceptedCallKeepsFocusOnEndCall() throws {
         try launch("incoming-accept")
         waitForBanner()
         XCTAssertTrue(element("banner-accept").press())
         XCTAssertTrue(waitExists("hud-timer"))
-        XCTAssertFalse(element("hud-hangup").isFocused, "End Call has focus only after the HUD was focused")
+        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "End Call has focus after accepting in Pickup")
         XCTAssertTrue(element("status-item").press())
-        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "the status item did not focus End Call")
+        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "the status item keeps End Call focused")
         XCTAssertFalse(exists("popover-root"), "the popover must not open during a call")
         screenshot("hud-focused", of: "call-hud")
-        keyboard.press(Key.escape)
-        XCTAssertFalse(Wait.until(1.5) { !self.exists("hud-hangup") }, "Esc must not end the call")
-        keyboard.press(Key.returnKey)
-        assertEnded(callEnded)
+        XCTAssertTrue(element("hud-hangup").press())
+        // Hung up on the Mac: the HUD closes without an ended state.
+        XCTAssertTrue(waitGone("call-hud", timeout: 5), "the HUD did not close after hanging up")
     }
 
     // MARK: Outgoing
@@ -146,7 +149,7 @@ final class CallScenarioUITests: PickupUITestCase {
         advance()                       // alerting
         XCTAssertTrue(waitText("hud-state") { $0 == self.s("Ringing…", "Es klingelt…") })
         XCTAssertTrue(element("hud-hangup").press())
-        XCTAssertTrue(waitText("hud-state") { $0 == self.s("Call cancelled", "Anruf abgebrochen") }, "state '\(hudState())'")
+        XCTAssertFalse(exists("hud-close"), "a call cancelled on the Mac shows no ended state")
         XCTAssertTrue(waitGone("call-hud", timeout: 10))
     }
 
@@ -154,7 +157,7 @@ final class CallScenarioUITests: PickupUITestCase {
         try launch("outgoing-cancel")
         dialWithKeyboard("jane")
         XCTAssertTrue(element("hud-hangup").press())
-        XCTAssertTrue(waitExists("hud-close", timeout: 10), "cancelled during dialing; state '\(hudState())'")
+        XCTAssertFalse(exists("hud-close"), "cancelled during dialing shows no ended state")
         XCTAssertTrue(waitGone("call-hud", timeout: 10))
     }
 

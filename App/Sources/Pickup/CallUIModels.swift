@@ -54,6 +54,8 @@ struct ActiveCallInfo: Equatable, Sendable {
     /// A second caller waiting on the line.
     var waiting: CallParty? = nil
     var notice: String? = nil
+    /// The user pressed End Call and the phone has not confirmed yet: the button shows progress.
+    var isEnding = false
 }
 
 /// Actions the views trigger. The engine binding supplies real closures.
@@ -78,5 +80,40 @@ enum ConnectionStatus: Equatable {
     var isConnected: Bool {
         if case .connected = self { return true }
         return false
+    }
+}
+
+/// How an ended call is presented.
+enum EndedCallPresentation {
+    /// Whether the HUD stays on screen with the "ended" state (reason and Close). A call the user ended
+    /// on this Mac (hung up or cancelled) closes the HUD as soon as the phone confirms: the End Call
+    /// button already showed the progress, and a second state would only repeat what the user did.
+    static func showsEndedState(reasonEndedOnMac: Bool, isOutgoing: Bool, wasConnected: Bool,
+                                failedOrLinkLost: Bool) -> Bool {
+        if reasonEndedOnMac { return false }
+        return isOutgoing || wasConnected || failedOrLinkLost
+    }
+}
+
+/// Progress of End Call pressed on this Mac, until the phone ends the call. Cleared when the phone
+/// rejects the command (the user can retry at once) or when an attempt times out; a timeout of an
+/// earlier attempt never clears a later retry.
+struct HangUpProgress: Equatable {
+    private(set) var callID: UUID?
+    private(set) var attempt = 0
+
+    func isEnding(_ id: UUID) -> Bool { callID == id }
+
+    /// Starts an attempt and returns its number (pass it to `timedOut`).
+    mutating func start(_ id: UUID) -> Int {
+        callID = id
+        attempt += 1
+        return attempt
+    }
+
+    mutating func commandFailed() { callID = nil }
+
+    mutating func timedOut(attempt: Int) {
+        if attempt == self.attempt { callID = nil }
     }
 }

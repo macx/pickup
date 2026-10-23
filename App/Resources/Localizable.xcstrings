@@ -2448,6 +2448,24 @@
           }
         }
       }
+    },
+    "Ending…": {
+      "comment": "Shown with a spinner on the End Call button after the user pressed it, until the phone confirms the call has ended (usually one or two seconds).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ending…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird beendet …"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
