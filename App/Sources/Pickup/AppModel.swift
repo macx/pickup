@@ -12,6 +12,13 @@ final class CallUIModel {
     var incoming: IncomingCallInfo?
     var active: ActiveCallInfo?
     var actions = CallActions()
+    /// The incoming-call banner or the call HUD has keyboard focus (is the key window), so its keyboard
+    /// shortcuts act and the primary button (Accept, End Call) has keyboard focus.
+    var bannerHasFocus = false
+    var hudHasFocus = false
+    /// Set when the user places a call from Pickup: the call HUD takes keyboard focus once it is shown,
+    /// so Return can end the call right away. Calls started on the phone and incoming calls never take focus.
+    var focusHUDWhenShown = false
 }
 
 /// Owns the transport and the engine, binds them to the UI models and routes system events
@@ -44,7 +51,9 @@ final class AppModel {
     let contacts = ContactsDirectory()
     let permissions = PermissionsModel()
     let linkHandler = LinkHandlerStatus()
-    @ObservationIgnored private(set) lazy var panels = CallPanelController(model: callUI)
+    @ObservationIgnored private(set) lazy var panels = CallPanelController(model: callUI) { [weak self] in
+        self?.log.log(.info, $0)
+    }
 
     var canDial: Bool { (connection.isConnected || isDemo) && !callIsLive }
 
@@ -352,6 +361,7 @@ final class AppModel {
         guard let engine else { return CallEngineError.notConnected.localizedText }
         do {
             try engine.dial(number, allowServiceCode: allowServiceCode)
+            callUI.focusHUDWhenShown = true
             return nil
         } catch {
             return error.pickupMessage

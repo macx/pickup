@@ -93,6 +93,24 @@ final class CallScenarioUITests: PickupUITestCase {
         XCTAssertTrue(waitGone("call-hud"), "Close dismisses the ended HUD")
     }
 
+    /// During a call the status item focuses the HUD instead of opening the popover; only then does the
+    /// End Call has focus, Esc does nothing and Return ends the call.
+    func testStatusItemFocusesTheHUDAndReturnEndsTheCall() throws {
+        try launch("incoming-accept")
+        waitForBanner()
+        XCTAssertTrue(element("banner-accept").press())
+        XCTAssertTrue(waitExists("hud-timer"))
+        XCTAssertFalse(element("hud-hangup").isFocused, "End Call has focus only after the HUD was focused")
+        XCTAssertTrue(element("status-item").press())
+        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "the status item did not focus End Call")
+        XCTAssertFalse(exists("popover-root"), "the popover must not open during a call")
+        screenshot("hud-focused", of: "call-hud")
+        keyboard.press(Key.escape)
+        XCTAssertFalse(Wait.until(1.5) { !self.exists("hud-hangup") }, "Esc must not end the call")
+        keyboard.press(Key.returnKey)
+        assertEnded(callEnded)
+    }
+
     // MARK: Outgoing
 
     func testOutgoingCallIsDialedRingsAnswersAndEnds() throws {
@@ -100,6 +118,7 @@ final class CallScenarioUITests: PickupUITestCase {
         dialWithKeyboard("jane")
         XCTAssertTrue(waitText("hud-state") { $0 == self.s("Calling…", "Anruf läuft …") }, "state '\(hudState())'")
         XCTAssertTrue(element("hud-caller").allText.contains("Jane Doe"))
+        XCTAssertTrue(Wait.until(3) { self.element("hud-hangup").isFocused }, "a call placed from Pickup focuses End Call (Return ends it)")
         advance()                       // remote side alerting
         XCTAssertTrue(waitText("hud-state") { $0 == self.s("Ringing…", "Es klingelt…") }, "state '\(hudState())'")
         advance()                       // answered

@@ -4,6 +4,7 @@ import SwiftUI
 struct IncomingCallBannerView: View {
     let info: IncomingCallInfo
     let actions: CallActions
+    var hasFocus = false
 
     private var title: String { info.party.primaryText ?? String(localized: "Unknown caller") }
 
@@ -44,8 +45,14 @@ struct IncomingCallBannerView: View {
                     .keyboardShortcut(.cancelAction)
                 CircleControl(symbol: "phone.fill", title: "Accept", style: .accept,
                               accessibilityLabel: "Accept call", identifier: "banner-accept", action: actions.accept)
-                    .keyboardShortcut(.defaultAction)
+                    .callPanelDefaultButton(panelHasFocus: hasFocus, action: actions.accept)
             }
+        }
+        // Esc declines (like Cancel in a dialog); `.keyboardShortcut(.cancelAction)` alone does not fire
+        // while Accept has focus.
+        .onKeyPress(.escape) {
+            actions.decline()
+            return .handled
         }
         .padding(14)
         .frame(width: 420)

@@ -91,7 +91,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     // MARK: Popover
 
     @objc private func togglePopover(_ sender: Any?) {
-        popover.isShown ? closePopover() : showPopover()
+        switch StatusItemClick.action(popoverShown: popover.isShown, callIsLive: model.callIsLive,
+                                      callPanelVisible: model.panels.isCallPanelVisible) {
+        case .closePopover: closePopover()
+        case .focusCallPanel: model.panels.focusCallPanel()
+        case .showPopover: showPopover()
+        }
     }
 
     /// `retries`: right after launch the status item's button may not be in a window yet (the status bar

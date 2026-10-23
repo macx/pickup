@@ -4,6 +4,7 @@ import SwiftUI
 struct CallHUDView: View {
     let info: ActiveCallInfo
     let actions: CallActions
+    var hasFocus = false
     @State private var showKeypad = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -72,9 +73,12 @@ struct CallHUDView: View {
                         .frame(maxWidth: .infinity, minHeight: 36)
                         .background(Color.red, in: Capsule())
                         .contentShape(Capsule())
+                        .contentShape(.focusEffect, Capsule())
                 }
                 .buttonStyle(PressableStyle())
-                .keyboardShortcut(.cancelAction)
+                // The HUD is key only after the user focused it (menu bar icon, global shortcut or a click
+                // on the HUD); then Return ends the call. Esc does nothing here.
+                .callPanelDefaultButton(panelHasFocus: hasFocus, action: actions.endCall)
                 .accessibilityIdentifier("hud-hangup")
             }
         }
