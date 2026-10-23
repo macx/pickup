@@ -50,15 +50,36 @@ final class CallPanel: NSPanel {
 @MainActor
 final class CallPanelController {
     private let model: CallUIModel
+    private let log: (String) -> Void
     private var banner: CallPanel?
     private var hud: CallPanel?
+    /// After a call placed from Pickup the HUD keeps (re)taking focus until this time: closing the
+    /// popover reactivates the previous app, and that activation can land after the HUD became key.
+    private var keepHUDFocusedUntil: Date?
+    private var activationObserver: NSObjectProtocol?
 
     /// Frames of the panels that are currently on screen (used by the call-cycle self test).
     var debugVisibleFrames: [NSRect] { [banner, hud].compactMap { $0 }.filter(\.isVisible).map(\.frame) }
 
-    init(model: CallUIModel) {
+    init(model: CallUIModel, log: @escaping (String) -> Void = { _ in }) {
         self.model = model
+        self.log = log
         track()
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            let bundleID = app?.bundleIdentifier ?? "unknown"
+            MainActor.assumeIsolated { self?.refocusHUDIfPending(activated: bundleID) }
+        }
+    }
+
+    /// `isKeyWindow` can stay true while another app has the keyboard, so the HUD is focused again on
+    /// every activation in the short window after dialing.
+    private func refocusHUDIfPending(activated bundleID: String) {
+        guard let until = keepHUDFocusedUntil, Date() < until, let hud, hud.isVisible else { return }
+        log("app activated right after dialing (\(bundleID)); focusing the call HUD again")
+        focusCallPanel()
     }
 
     /// The call panel on screen: the incoming-call banner, else the call HUD.
@@ -71,7 +92,10 @@ final class CallPanelController {
     /// Brings the visible call panel to the front and gives it keyboard focus, on an explicit user action
     /// (click on the menu bar icon or the global shortcut). It still does not activate the app.
     func focusCallPanel() {
-        guard let panel = visibleCallPanel else { return }
+        guard let panel = visibleCallPanel else {
+            log("focus call panel: no call panel visible")
+            return
+        }
         panel.orderFrontRegardless()
         panel.makeKey()
     }
@@ -92,16 +116,28 @@ final class CallPanelController {
         banner = update(banner, visible: model.incoming != nil, topInset: 12) {
             IncomingCallRoot(model: model)
         }
-        banner?.onKeyChange = { [weak model] in model?.bannerHasFocus = $0 }
+        banner?.onKeyChange = { [weak self] in
+            self?.model.bannerHasFocus = $0
+            self?.log("incoming-call banner \($0 ? "has" : "lost") keyboard focus")
+        }
         hud = update(hud, visible: model.active != nil, topInset: 12) {
             CallHUDRoot(model: model)
         }
-        hud?.onKeyChange = { [weak model] in model?.hudHasFocus = $0 }
+        hud?.onKeyChange = { [weak self] in
+            self?.model.hudHasFocus = $0
+            self?.log("call HUD \($0 ? "has" : "lost") keyboard focus")
+        }
         if model.focusHUDWhenShown, model.active != nil {
             model.focusHUDWhenShown = false
-            // After the popover (or the link confirmation) has closed and the previous app is active again.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.focusCallPanel() }
+            keepHUDFocusedUntil = Date().addingTimeInterval(2)
+            // After the popover (or the link confirmation) has closed and the previous app is active again;
+            // `refocusHUDIfPending` covers an activation that arrives later.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.log("focusing the call HUD after a call placed from Pickup")
+                self?.focusCallPanel()
+            }
         }
+        if model.active == nil { keepHUDFocusedUntil = nil }
     }
 
     private func update<Content: View>(_ panel: CallPanel?, visible: Bool, topInset: CGFloat,

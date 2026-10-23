@@ -51,7 +51,9 @@ final class AppModel {
     let contacts = ContactsDirectory()
     let permissions = PermissionsModel()
     let linkHandler = LinkHandlerStatus()
-    @ObservationIgnored private(set) lazy var panels = CallPanelController(model: callUI)
+    @ObservationIgnored private(set) lazy var panels = CallPanelController(model: callUI) { [weak self] in
+        self?.log.log(.info, $0)
+    }
 
     var canDial: Bool { (connection.isConnected || isDemo) && !callIsLive }
 
