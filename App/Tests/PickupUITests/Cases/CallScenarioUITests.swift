@@ -108,7 +108,8 @@ final class CallScenarioUITests: PickupUITestCase {
         keyboard.press(Key.escape)
         XCTAssertFalse(Wait.until(1.5) { !self.exists("hud-hangup") }, "Esc must not end the call")
         keyboard.press(Key.returnKey)
-        assertEnded(callEnded)
+        // Hung up on the Mac: the HUD closes without an ended state.
+        XCTAssertTrue(waitGone("call-hud", timeout: 5), "Return did not end the call")
     }
 
     // MARK: Outgoing
