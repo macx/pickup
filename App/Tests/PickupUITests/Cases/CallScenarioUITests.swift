@@ -88,9 +88,9 @@ final class CallScenarioUITests: PickupUITestCase {
         XCTAssertTrue(element("banner-accept").press())
         XCTAssertTrue(waitExists("hud-timer"))
         XCTAssertTrue(element("hud-hangup").press())
-        assertEnded(callEnded)
-        XCTAssertTrue(element("hud-close").press())
-        XCTAssertTrue(waitGone("call-hud"), "Close dismisses the ended HUD")
+        // Hung up on the Mac: no "ended" state, the HUD closes once the phone confirms.
+        XCTAssertFalse(exists("hud-close"), "a call ended on the Mac shows no ended state")
+        XCTAssertTrue(waitGone("call-hud", timeout: 5), "the HUD closes after hanging up")
     }
 
     /// During a call the status item focuses the HUD instead of opening the popover; only then does the
@@ -146,7 +146,7 @@ final class CallScenarioUITests: PickupUITestCase {
         advance()                       // alerting
         XCTAssertTrue(waitText("hud-state") { $0 == self.s("Ringing…", "Es klingelt…") })
         XCTAssertTrue(element("hud-hangup").press())
-        XCTAssertTrue(waitText("hud-state") { $0 == self.s("Call cancelled", "Anruf abgebrochen") }, "state '\(hudState())'")
+        XCTAssertFalse(exists("hud-close"), "a call cancelled on the Mac shows no ended state")
         XCTAssertTrue(waitGone("call-hud", timeout: 10))
     }
 
@@ -154,7 +154,7 @@ final class CallScenarioUITests: PickupUITestCase {
         try launch("outgoing-cancel")
         dialWithKeyboard("jane")
         XCTAssertTrue(element("hud-hangup").press())
-        XCTAssertTrue(waitExists("hud-close", timeout: 10), "cancelled during dialing; state '\(hudState())'")
+        XCTAssertFalse(exists("hud-close"), "cancelled during dialing shows no ended state")
         XCTAssertTrue(waitGone("call-hud", timeout: 10))
     }
 

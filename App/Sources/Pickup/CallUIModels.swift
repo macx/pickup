@@ -54,6 +54,8 @@ struct ActiveCallInfo: Equatable, Sendable {
     /// A second caller waiting on the line.
     var waiting: CallParty? = nil
     var notice: String? = nil
+    /// The user pressed End Call and the phone has not confirmed yet: the button shows progress.
+    var isEnding = false
 }
 
 /// Actions the views trigger. The engine binding supplies real closures.
@@ -78,5 +80,17 @@ enum ConnectionStatus: Equatable {
     var isConnected: Bool {
         if case .connected = self { return true }
         return false
+    }
+}
+
+/// How an ended call is presented.
+enum EndedCallPresentation {
+    /// Whether the HUD stays on screen with the "ended" state (reason and Close). A call the user ended
+    /// on this Mac (hung up or cancelled) closes the HUD as soon as the phone confirms: the End Call
+    /// button already showed the progress, and a second state would only repeat what the user did.
+    static func showsEndedState(reasonEndedOnMac: Bool, isOutgoing: Bool, wasConnected: Bool,
+                                failedOrLinkLost: Bool) -> Bool {
+        if reasonEndedOnMac { return false }
+        return isOutgoing || wasConnected || failedOrLinkLost
     }
 }
