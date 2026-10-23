@@ -89,8 +89,7 @@ struct DialerView: View {
                 GuidanceCard(guidance: guidance, model: model, openSettings: openSettings)
             }
             if let notice = model.notice {
-                Text(verbatim: notice).font(.caption).foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
+                StatusMessage(text: notice)
             }
             if let reason = unavailableReason, model.guidance == nil {
                 Text(verbatim: reason).font(.caption).foregroundStyle(.secondary)
@@ -103,8 +102,7 @@ struct DialerView: View {
                 content
             }
             if let error {
-                Text(verbatim: error).font(.caption).foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
+                StatusMessage(text: error, kind: .error)
             }
         }
         .padding([.horizontal, .top], 16)
@@ -290,7 +288,7 @@ struct DialerView: View {
                         .font(.system(size: 24))
                         .foregroundStyle(.white)
                         .frame(width: 60, height: 60)
-                        .glassEffect(.regular.tint(.green).interactive(), in: Circle())
+                        .glassEffect(.regular.tint(.callGreen).interactive(), in: Circle())
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -504,7 +502,7 @@ private struct ResultRow: View {
                     .font(.system(size: 14))
                     .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
-                    .background(row.warning ? Color.orange : Color.green, in: Circle())
+                    .background(row.warning ? Color.warningOrange : Color.callGreen, in: Circle())
                     .accessibilityHidden(true)
             } else if let party = row.party {
                 AvatarView(party: party, size: 32)
@@ -513,7 +511,7 @@ private struct ResultRow: View {
                 Text(verbatim: row.title).font(.body).lineLimit(1).truncationMode(.tail)
                 if let subtitle = row.subtitle {
                     Text(verbatim: subtitle).font(.caption)
-                        .foregroundStyle(row.warning ? Color.orange : Color.secondary).lineLimit(1)
+                        .foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer(minLength: 0)

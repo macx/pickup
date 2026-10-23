@@ -47,6 +47,39 @@ extension View {
     }
 }
 
+extension Color {
+    /// Darker green and orange (Apple's increased-contrast variants of the system colors), so white
+    /// symbols on them reach at least 3:1 (WCAG 1.4.11); the regular system green and orange give about 2:1.
+    static let callGreen = Color(red: 0x24 / 255, green: 0x8A / 255, blue: 0x3D / 255)
+    static let warningOrange = Color(red: 0xC9 / 255, green: 0x34 / 255, blue: 0x00 / 255)
+}
+
+/// A warning or error line. The symbol carries the meaning; the text stays in the primary label color,
+/// because orange or red text on a light background stays below the 4.5:1 contrast for text.
+struct StatusMessage: View {
+    enum Kind { case warning, error }
+
+    let text: String
+    var kind: Kind = .warning
+    var font: Font = .callout
+
+    var body: some View {
+        Label {
+            Text(verbatim: text)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            switch kind {
+            case .warning:
+                Image(systemName: "exclamationmark.triangle.fill").symbolRenderingMode(.multicolor)
+            case .error:
+                Image(systemName: "exclamationmark.octagon.fill").foregroundStyle(.red)
+            }
+        }
+        .font(font)
+    }
+}
+
 struct AvatarView: View {
     let party: CallParty
     var size: CGFloat
@@ -100,7 +133,7 @@ struct CircleControl: View {
                     .background(background, in: Circle())
                     .contentTransition(.symbolEffect(.replace))
                 Text(title)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -121,7 +154,7 @@ struct CircleControl: View {
         switch style {
         case .neutral: AnyShapeStyle(.gray.opacity(0.55))
         case .toggled: AnyShapeStyle(.white)
-        case .accept: AnyShapeStyle(Color.green)
+        case .accept: AnyShapeStyle(Color.callGreen)
         case .destructive: AnyShapeStyle(Color.red)
         }
     }

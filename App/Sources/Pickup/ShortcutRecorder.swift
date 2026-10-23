@@ -84,13 +84,13 @@ struct ShortcutHint: View {
 
     var body: some View {
         if state.rejected {
-            line(String(localized: "Include ⌘, ⌃ or ⌥ in the shortcut.", comment: "Hint when a recorded shortcut has no ⌘, ⌃ or ⌥ modifier and was rejected."), color: .red)
+            line(String(localized: "Include ⌘, ⌃ or ⌥ in the shortcut.", comment: "Hint when a recorded shortcut has no ⌘, ⌃ or ⌥ modifier and was rejected."), kind: .error)
         } else if manager.combo?.isLikelySystemShortcut == true {
-            line(String(localized: "macOS may already use this combination.", comment: "Warning under the global shortcut when it matches a well-known system shortcut."), color: .orange)
+            line(String(localized: "macOS may already use this combination.", comment: "Warning under the global shortcut when it matches a well-known system shortcut."), kind: .warning)
         }
     }
 
-    private func line(_ text: String, color: Color) -> some View {
-        Text(verbatim: text).font(.caption).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
+    private func line(_ text: String, kind: StatusMessage.Kind) -> some View {
+        StatusMessage(text: text, kind: kind, font: .caption)
     }
 }

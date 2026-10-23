@@ -13,25 +13,23 @@ struct IncomingCallBannerView: View {
             AvatarView(party: info.party, size: 48)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: title)
-                    .font(.headline)
-                    .lineLimit(1)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(2)
                     .truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let secondary = info.party.secondaryText {
                     Text(verbatim: secondary)
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Text("Incoming call on \(info.phoneName)")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 if let notice = info.notice {
-                    Text(verbatim: notice)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
+                    StatusMessage(text: notice)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
