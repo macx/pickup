@@ -288,19 +288,21 @@ struct DialerView: View {
 
     // MARK: Top bar
 
+    /// No `GlassEffectContainer` here: the button and the capsule are exactly the container's blend
+    /// distance apart, so toggling the button made the glass merge and the capsule visibly shift.
     private var topBar: some View {
-        GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 8) {
+        HStack(spacing: 8) {
                 Button(action: toggleKeypad) {
                     Image(systemName: "circle.grid.3x3.fill")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(showKeypad ? Color.white : Color.primary)
                         .frame(width: 34, height: 34)
-                        .glassEffect(showKeypad ? .regular.tint(.accentColor).interactive() : .regular.interactive(),
-                                     in: Circle())
+                        // One glass whose tint changes (no swap of glass variants), and no interactive
+                        // press bounce: the button keeps its size and place when it is toggled.
+                        .glassEffect(.regular.tint(showKeypad ? .accentColor : nil), in: Circle())
                         .contentShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(SteadyPressStyle())
                 // Like Apple's toolbar buttons: no focus ring, except for Full Keyboard Access users.
                 .focusEffectDisabled(!NSApp.isFullKeyboardAccessEnabled)
                 .accessibilityLabel(Text("Keypad"))
@@ -331,7 +333,6 @@ struct DialerView: View {
                 .padding(.horizontal, 12)
                 .frame(height: 34)
                 .glassEffect(.regular, in: Capsule())
-            }
         }
     }
 
@@ -349,8 +350,15 @@ struct DialerView: View {
 
     // MARK: Keypad
 
-    /// Height of the keypad (five rows of 60 pt keys, 12 pt apart); the recent calls take the same.
-    static let keypadHeight: CGFloat = 5 * 60 + 4 * 12
+    /// Keys fill the content width (popover 300 pt minus 2 × 16 pt), so the keypad has the same side
+    /// margins as the top bar and the lists.
+    static let keySize: CGFloat = 68
+    /// Width of everything between the popover's 16 pt side margins.
+    static let contentWidth: CGFloat = 300 - 2 * 16
+    static let keyColumnSpacing: CGFloat = (contentWidth - 3 * keySize) / 2
+    static let keyRowSpacing: CGFloat = 12
+    /// Height of the keypad (four rows of keys and the call button); the recent calls take the same.
+    static let keypadHeight: CGFloat = 5 * keySize + 4 * keyRowSpacing
     static let callButtonSize: CGFloat = 28
 
     private static let keys: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["*", "0", "#"]]
@@ -366,13 +374,13 @@ struct DialerView: View {
         } label: {
             VStack(spacing: -2) {
                 Text(verbatim: key)
-                    .font(.system(size: 24, weight: .regular, design: .rounded))
+                    .font(.system(size: 26, weight: .regular, design: .rounded))
                 if let glyph = KeypadKey.secondaryGlyph(for: key) {
                     Text(verbatim: glyph).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                         .accessibilityIdentifier("key-plus")
                 }
             }
-            .frame(width: 60, height: 60)
+            .frame(width: Self.keySize, height: Self.keySize)
             .glassEffect(.regular.interactive(), in: Circle())
             .overlay(Circle().fill(Color.primary.opacity(pressed ? 0.22 : 0)))
             .scaleEffect(pressed ? 0.93 : 1)
@@ -401,10 +409,10 @@ struct DialerView: View {
     }
 
     private var keypad: some View {
-        GlassEffectContainer(spacing: 12) {
-            VStack(spacing: 12) {
+        GlassEffectContainer(spacing: Self.keyRowSpacing) {
+            VStack(spacing: Self.keyRowSpacing) {
                 ForEach(Self.keys, id: \.self) { row in
-                    HStack(spacing: 16) {
+                    HStack(spacing: Self.keyColumnSpacing) {
                         ForEach(row, id: \.self) { key in
                             keypadKey(key)
                         }
@@ -412,9 +420,9 @@ struct DialerView: View {
                 }
                 Button(action: placeTypedCall) {
                     Image(systemName: "phone.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: 26))
                         .foregroundStyle(.white)
-                        .frame(width: 60, height: 60)
+                        .frame(width: Self.keySize, height: Self.keySize)
                         .glassEffect(.regular.tint(.callGreen).interactive(), in: Circle())
                         .contentShape(Circle())
                 }
@@ -472,7 +480,12 @@ struct DialerView: View {
                     }
                 }
             }
+            // Fixed width: with a mouse attached, macOS shows a legacy scroller that widened the list
+            // by its width, pushed the popover's content 5 pt to the left and made it jump when the
+            // keypad (no scroller) replaced the list.
+            .frame(width: Self.contentWidth)
             .frame(maxHeight: fill ? .infinity : (showKeypad ? 3 : 6) * 50, alignment: .top)
+            .scrollEdgeEffectStyle(.soft, for: .bottom)   // rows fade out at the bottom instead of being cut
             .onChange(of: selectedID) { _, new in
                 if let new { proxy.scrollTo(new) }
             }
@@ -810,5 +823,12 @@ private struct PlusLongPress: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Pressed feedback without moving anything: the label only dims while the mouse is down.
+private struct SteadyPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
