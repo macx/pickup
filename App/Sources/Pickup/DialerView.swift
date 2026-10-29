@@ -151,6 +151,7 @@ struct DialerView: View {
                 return selectTab(index + delta)
             }
             DialerKeyRouter.shared.selectTab = { index in selectTab(index) }
+            DialerKeyRouter.shared.submit = { submitSelectedRow() }
             DialerKeyRouter.shared.physicalKey = { key, down in physicalKey(key, down: down) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .pickupPopoverWillShow)) { _ in
@@ -469,6 +470,10 @@ struct DialerView: View {
                                       enabled: model.canDial, trailingInset: row.isRecent ? Self.callButtonSize + 8 : 0)
                         }
                         .buttonStyle(.plain)
+                        // Rows never take keyboard focus: the selection outline is their only indicator
+                        // (a second, system focus ring looked like two selections). The keyboard reaches
+                        // them with Tab and the arrow keys from the field; the call buttons stay focusable.
+                        .focusable(false)
                         .disabled(!model.canDial)
                         .id(row.id)
                         .accessibilityIdentifier(row.testIdentifier)
@@ -606,6 +611,15 @@ struct DialerView: View {
         let index = min(max(selectedIndex + delta, 0), rows.count - 1)
         if selectedID != rows[index].id { announceSelection(rows[index]) }
         selectedID = rows[index].id
+        fieldFocused = true   // arrow keys bring keyboard focus back from any button to the field
+        return true
+    }
+
+    /// Return with an explicitly selected row (arrow keys, Tab, click): call it. Handled in the key
+    /// monitor, so it works even when keyboard focus is not in the text field.
+    private func submitSelectedRow() -> Bool {
+        guard let row = rows.first(where: { $0.id == selectedID }) else { return false }
+        activate(row)
         return true
     }
 
@@ -677,6 +691,8 @@ final class DialerKeyRouter {
     var switchTab: ((Int) -> Bool)?
     /// ⌘1 to ⌘3: recent calls tab by position.
     var selectTab: ((Int) -> Bool)?
+    /// Return/Enter: calls the selected row, whichever control has keyboard focus; false = no row selected.
+    var submit: (() -> Bool)?
     /// A physical dial key (0-9 * #) went down/up; drives the on-screen key highlight.
     var physicalKey: ((String, Bool) -> Void)?
 }

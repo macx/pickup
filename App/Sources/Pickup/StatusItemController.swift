@@ -166,6 +166,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             case 125: return (router.move?(1) ?? false) ? nil : event    // down
             case 123: return (router.switchTab?(-1) ?? false) ? nil : event  // left: previous recent calls tab
             case 124: return (router.switchTab?(1) ?? false) ? nil : event   // right: next tab
+            case 36, 76:                                                  // return / enter: call the selected row
+                return (router.submit?() ?? false) ? nil : event
             case 48:                                                      // tab: into the list, shift-tab: back
                 return (router.tab?(event.modifierFlags.contains(.shift)) ?? false) ? nil : event
             case 53:                                                      // esc
