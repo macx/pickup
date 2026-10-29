@@ -16,6 +16,8 @@ Rules for `AppleHFPTransport`:
 - **Outgoing AT lines are routed by channel.** The process-wide write hook hands each line to the transport that owns the channel's hands-free object; lines of parked objects are only logged.
 - **Diagnostics:** every AT line carries the object tag (`[hf#1]`), and connect lines show how many hands-free objects exist. An `AT+BRSF` on a channel the transport does not own is logged as an error, because that is the signature of this crash. Log lines are written with one `write(2)` each, before IOBluetooth processes the data, so the last line before a crash shows what triggered it.
 
+- **Call list reads (`AT+CPBS`/`AT+CPBR`) never overlap IOBluetooth's own commands.** On 2026-10-29 a read started 2 s after the SLC, while IOBluetooth's follow-up `AT+VGS`/`AT+VGM` were still due; they went out 6 s late and IOBluetooth crashed in `-[IOBluetoothHandsFreeDevice processResultCode:]` (`objc_retain` on a freed object) on the next incoming data. Reads that started after those commands never failed. A read therefore waits 10 s after the SLC (`Timeouts.historyQuietPeriod`) and until no command waits for its reply, and the two commands of one list are sent strictly one after the other.
+
 ### Known edge cases to revisit after hardware tests
 - Third reconnect review, item L3: deferred on purpose until hardware tests with the first signed build confirm the open IOBluetooth behaviours.
   - A `connected(status≠0)` callback (aborted connect of a parked object, or in the transport itself) does not confirm the pending close; the next owner then waits the full 10 s again.

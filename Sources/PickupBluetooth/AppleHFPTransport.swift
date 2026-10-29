@@ -51,6 +51,12 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         public var deviceAppearedDelay: TimeInterval = 2.5
         /// An SLC that still looks up after an unconfirmed disconnect must answer `AT+CLCC` within this.
         public var verifySLC: TimeInterval = 3
+        /// No call list is read this soon after the SLC came up: IOBluetooth still sends its own
+        /// follow-up commands then (`AT+VGS`, `AT+VGM`), and interleaving ours with them crashed
+        /// IOBluetooth on 2026-10-29 (see `readCallHistory`).
+        public var historyQuietPeriod: TimeInterval = 10
+        /// How often a waiting call list read checks again whether the link is idle.
+        public var historyRetry: TimeInterval = 0.5
         public init() {}
     }
 
@@ -139,6 +145,9 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     private var historyQueue: [(list: CallHistoryList, count: Int)] = []
     /// The call list read in progress: the phonebook is being selected, then read.
     private var historyStep: (list: CallHistoryList, count: Int, reading: Bool)?
+    /// When the current SLC came up; call list reads wait `timeouts.historyQuietPeriod` after it.
+    private var slcEstablishedAt: Date?
+    private var historyRetryTask: ScheduledTask?
     private var fallbackFlush: ScheduledTask?
     private var connectObserver: AnyObject?
 
@@ -255,6 +264,8 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         verifyTimer = nil
         deviceAppearedTask = nil
         fallbackFlush = nil
+        historyRetryTask?.cancel()
+        historyRetryTask = nil
         connectObserver = nil
         // The registry parks the object (closes its link, keeps it alive and listening) and
         // remembers a disconnect in flight for the next owner.
@@ -311,8 +322,25 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
 
     /// Starts the next queued call list read: `AT+CPBS="<list>"`, then `AT+CPBR=1,<count>` once the
     /// phone selected it (see `historyExchangeEnded`).
+    ///
+    /// Crash of 2026-10-29 (SIGSEGV in `-[IOBluetoothHandsFreeDevice processResultCode:]`): the read
+    /// started 2 s after the SLC, while IOBluetooth's own `AT+VGS`/`AT+VGM` were still due; they went
+    /// out 6 s late and IOBluetooth crashed on the next incoming data. Reads that started after those
+    /// commands never failed. So a read starts only after the quiet period and when no command is
+    /// waiting for its reply.
     private func sendNextHistoryCommand() {
-        guard historyStep == nil, !historyQueue.isEmpty else { return }
+        guard historyStep == nil, !historyQueue.isEmpty, historyRetryTask == nil else { return }
+        let quietUntil = slcEstablishedAt.map { $0.addingTimeInterval(timeouts.historyQuietPeriod) } ?? scheduler.now
+        if scheduler.now < quietUntil || tracker.pendingCount > 0 {
+            let delay = max(quietUntil.timeIntervalSince(scheduler.now), timeouts.historyRetry)
+            historyRetryTask = scheduler.schedule(after: delay) { [weak self] in
+                guard let self else { return }
+                self.historyRetryTask = nil
+                guard self.linkState == .connected else { return }
+                self.sendNextHistoryCommand()
+            }
+            return
+        }
         let next = historyQueue.removeFirst()
         historyStep = (next.list, next.count, false)
         sendHistoryCommand("AT+CPBS=\"\(next.list.rawValue)\"")
@@ -596,6 +624,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         default:
             break
         }
+        slcEstablishedAt = scheduler.now
         setLinkState(.connected)
         unconfirmedDisconnects = 0
         setLinkSetupBlocked(false)
@@ -662,6 +691,9 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
             tracker.reset()
             historyQueue.removeAll()
             historyStep = nil
+            historyRetryTask?.cancel()
+            historyRetryTask = nil
+            slcEstablishedAt = nil
         }
         emit(.linkStateChanged(state))
     }

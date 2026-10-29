@@ -611,6 +611,7 @@ final class AppleHFPTransportTests: XCTestCase {
     func testCallHistoryIsSelectedThenReadOneListAtATime() async throws {
         let transport = makeTransport()
         let link = connected(transport)
+        clock.advance(by: 10)
         try transport.readCallHistory(.dialed, count: 2)
         try transport.readCallHistory(.missed, count: 2)
         XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+") }, [#"AT+CPBS="DC""#], "the second list waits for the first")
@@ -639,6 +640,24 @@ final class AppleHFPTransportTests: XCTestCase {
         XCTAssertEqual(historyEvents.last, .callHistory(.missed, nil))
     }
 
+    /// Regression test for the crash of 2026-10-29 (SIGSEGV in `-[IOBluetoothHandsFreeDevice
+    /// processResultCode:]`): a read interleaved with IOBluetooth's own commands right after the SLC.
+    func testCallHistoryWaitsForTheQuietPeriodAndAnIdleLink() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        clock.advance(by: 2)
+        try transport.readCallHistory(.dialed, count: 5)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "not while IOBluetooth still finishes the set-up")
+
+        // IOBluetooth's own command is still waiting for its reply when the quiet period ends.
+        transport.sentLine("AT+VGS=7", detail: nil, channel: link.channel)
+        clock.advance(by: 8)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "not while another command waits for its reply")
+        transport.receivedLine("OK", detail: nil)
+        clock.advance(by: 0.5)
+        XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+CPB") }, [#"AT+CPBS="DC""#])
+    }
+
     func testCallHistoryNeedsTheWriteHookAndALink() throws {
         let untapped = makeTransport(address: "aa-bb-cc-dd-ee-01", assumeOutgoingTap: false)
         _ = connected(untapped)
@@ -662,6 +681,7 @@ final class AppleHFPTransportTests: XCTestCase {
         again.isConnected = true
         transport.handsFree(again, connectedWithStatus: 0)
         try transport.readCallHistory(.missed, count: 5)
+        clock.advance(by: 10)
         XCTAssertEqual(again.calls.filter { $0.hasPrefix("AT+CPBS") }.last, #"AT+CPBS="MC""#,
                        "a fresh link starts with the new request, not with the old queue")
     }
