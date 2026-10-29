@@ -840,15 +840,15 @@ private struct RecentCallsTabs: View {
                 Button { selection = list.rawValue } label: {
                     Text(verbatim: list.localizedTabName)
                         .font(.callout.weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? Color.activeSegmentText : Color.primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity)
                         .frame(height: 24)
                         .background {
+                            // Active tab like a native segmented control: filled with the accent color.
                             if selected {
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(Color.selectionFill)
-                                    .strokeBorder(Color.selectionRing, lineWidth: 1.5)
+                                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.activeSegment)
                             }
                         }
                         .contentShape(Rectangle())

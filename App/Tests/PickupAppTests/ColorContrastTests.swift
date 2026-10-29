@@ -67,4 +67,11 @@ final class ColorContrastTests: XCTestCase {
             }
         }
     }
+
+    func testActiveTabLabelReachesFourAndAHalfToOne() throws {
+        for dark in [false, true] {
+            let a = try luminance(.activeSegmentText, dark: dark), b = try luminance(.activeSegment, dark: dark)
+            XCTAssertGreaterThanOrEqual((max(a, b) + 0.05) / (min(a, b) + 0.05), 4.5, dark ? "dark" : "light")
+        }
+    }
 }

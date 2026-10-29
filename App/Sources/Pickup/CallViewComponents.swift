@@ -64,6 +64,10 @@ extension Color {
     /// Outline of the selected row: the state is visible without relying on the faint fill.
     static let selectionRing = adaptive(light: 0x0064E1, dark: 0x4DA3FF)
     static let selectionFill = adaptive(light: 0x0064E1, dark: 0x4DA3FF, alpha: 0.15)
+    /// Active recent calls tab: the system's selection color, derived from the user's accent color
+    /// (darker than the accent itself, so the white label reaches 4.5:1), with its label color.
+    static let activeSegment = Color(nsColor: .selectedContentBackgroundColor)
+    static let activeSegmentText = Color(nsColor: .alternateSelectedControlTextColor)
 
     static func adaptive(light: UInt32, dark: UInt32, alpha: CGFloat = 1) -> Color {
         func color(_ hex: UInt32) -> NSColor {
