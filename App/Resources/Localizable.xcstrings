@@ -2574,6 +2574,168 @@
           }
         }
       }
+    },
+    "Search field": {
+      "comment": "VoiceOver announcement when the keyboard leaves the recent calls list and returns to the popover's search field.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search field"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suchfeld"
+          }
+        }
+      }
+    },
+    "%@ tab, no calls": {
+      "comment": "VoiceOver announcement when the recent calls tab is switched from the keyboard and the tab is empty. %@ is the tab name, e.g. \"Missed\".",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tab, no calls"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reiter „%@“, keine Anrufe"
+          }
+        }
+      }
+    },
+    "%@ tab, %@": {
+      "comment": "VoiceOver announcement when the recent calls tab is switched from the keyboard. First %@ is the tab name, second the selected row, e.g. \"Jane Doe, selected\".",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ tab, %2$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reiter „%1$@“, %2$@"
+          }
+        }
+      }
+    },
+    "%@ tab": {
+      "comment": "VoiceOver announcement when the recent calls tab is switched from the keyboard. %@ is the tab name, e.g. \"Missed\".",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tab"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reiter „%@“"
+          }
+        }
+      }
+    },
+    "%@, %@, selected": {
+      "comment": "VoiceOver announcement when a row of the popover's list is selected with the keyboard. First %@ is the name or number, second the details (number, time).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@, selected"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@, ausgewählt"
+          }
+        }
+      }
+    },
+    "%@, selected": {
+      "comment": "VoiceOver announcement when a row of the popover's list is selected with the keyboard. %@ is the name or number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, selected"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, ausgewählt"
+          }
+        }
+      }
+    },
+    "Redial": {
+      "comment": "Label of the keypad's call button while the field is empty: it puts the last dialed number in.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redial"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wahlwiederholung"
+          }
+        }
+      }
+    },
+    "Loading recent calls": {
+      "comment": "VoiceOver label of the progress indicator while the recent calls are read from the phone.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading recent calls"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anrufliste wird geladen"
+          }
+        }
+      }
+    },
+    "Use the left and right arrow keys or Command-1 to 3 to switch tabs.": {
+      "comment": "VoiceOver hint of the recent calls tabs in the popover.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the left and right arrow keys or Command-1 to 3 to switch tabs."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reiter mit den Pfeiltasten links und rechts oder mit Befehlstaste-1 bis 3 wechseln."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

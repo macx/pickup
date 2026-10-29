@@ -34,6 +34,8 @@ struct DialerView: View {
     @State private var keypadText: String? = ""
     /// Tab of the recent calls shown while the field is empty (remembered between launches).
     @AppStorage("recentCallsList") private var recentListRaw = CallHistoryList.dialed.rawValue
+    /// The tab was changed from the keyboard while a row was selected: select the new tab's first row.
+    @State private var selectFirstRecentRow = false
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -67,6 +69,9 @@ struct DialerView: View {
     private var redialNumber: String? {
         DialerRows.redialNumber(in: model.callHistory.entries(.dialed))
     }
+
+    /// The keypad's call button puts the last dialed number in instead of calling.
+    private var keypadCallsRedial: Bool { queryIsEmpty && redialNumber != nil }
 
     private var keypadCallEnabled: Bool {
         model.canDial && (callRow != nil || (queryIsEmpty && redialNumber != nil))
@@ -112,11 +117,20 @@ struct DialerView: View {
             if let reason = unavailableReason, model.guidance == nil {
                 Text(verbatim: reason).font(.caption).foregroundStyle(.secondary)
             }
-            if showKeypad {
-                keypad
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+            if showKeypad || queryIsEmpty {
+                // Keypad and recent calls share one box of the keypad's height: toggling the keypad
+                // cross-fades in place, and loading the calls never resizes the popover.
+                ZStack(alignment: .top) {
+                    if showKeypad {
+                        keypad.transition(.opacity)
+                    }
+                    if queryIsEmpty && !showKeypad {
+                        recentCalls.transition(.opacity)
+                    }
+                }
+                .frame(height: Self.keypadHeight, alignment: .top)
             }
-            if !queryIsEmpty || !showKeypad {
+            if !queryIsEmpty {
                 content
             }
             if let error {
@@ -130,6 +144,11 @@ struct DialerView: View {
             DialerKeyRouter.shared.move = { delta in moveSelection(delta) }
             DialerKeyRouter.shared.escape = { handleEscape() }
             DialerKeyRouter.shared.tab = { backwards in handleTab(backwards: backwards) }
+            DialerKeyRouter.shared.switchTab = { delta in
+                guard let index = CallHistoryList.allCases.firstIndex(of: recentList) else { return false }
+                return selectTab(index + delta)
+            }
+            DialerKeyRouter.shared.selectTab = { index in selectTab(index) }
             DialerKeyRouter.shared.physicalKey = { key, down in physicalKey(key, down: down) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .pickupPopoverWillShow)) { _ in
@@ -152,11 +171,19 @@ struct DialerView: View {
             selectedID = nil
             pendingConfirmationID = nil
         }
-        .onChange(of: fieldFocused) { _, focused in if focused { collapseCaret() } }
+        .onChange(of: fieldFocused) { _, focused in
+            if focused {
+                collapseCaret()
+            } else if queryIsEmpty {
+                selectedID = nil   // Return goes to the focused control now, not to a recent call
+            }
+        }
         .onChange(of: recentListRaw) { _, _ in
-            selectedID = nil
             pendingConfirmationID = nil
             error = nil
+            let keepSelection = selectFirstRecentRow
+            selectFirstRecentRow = false
+            selectedID = keepSelection ? rows.first?.id : nil
         }
     }
 
@@ -195,16 +222,60 @@ struct DialerView: View {
 
     /// Tab moves from the field into the list (selects the first row), Shift-Tab back to the field.
     /// Typing still goes to the field; Return calls the selected row.
+    ///
+    /// A second Tab keeps its system meaning (with Full Keyboard Access it moves on to the tabs and
+    /// buttons), so the list is never a keyboard trap; leaving the field clears the list selection.
     private func handleTab(backwards: Bool) -> Bool {
         let rows = self.rows
+        let inList = rows.contains { $0.id == selectedID }
         if backwards {
-            guard selectedID != nil, queryIsEmpty else { return false }
+            guard inList, queryIsEmpty else { return false }
             leaveList()
+            announce(String(localized: "Search field", comment: "VoiceOver announcement when the keyboard leaves the recent calls list and returns to the popover's search field."))
             return true
         }
-        guard !rows.isEmpty, !rows.contains(where: { $0.id == selectedID }) else { return false }
+        guard !rows.isEmpty, !inList else { return false }
         selectedID = rows[0].id
+        announceSelection(rows[0])
         return true
+    }
+
+    /// Switches the recent calls tab from the keyboard (only while the field is empty). A selected
+    /// row moves to the first row of the new tab; VoiceOver hears the tab and that row.
+    private func selectTab(_ index: Int) -> Bool {
+        guard queryIsEmpty else { return false }
+        let lists = CallHistoryList.allCases
+        let target = lists[min(max(index, 0), lists.count - 1)]
+        guard target != recentList else { return true }
+        let wasInList = rows.contains { $0.id == selectedID }
+        selectFirstRecentRow = wasInList
+        recentListRaw = target.rawValue
+        let newRows = DialerRows.recentRows(model.callHistory.entries(target), list: target)
+        let detail = wasInList ? newRows.first.map(selectionText) : nil
+        let tabName = target.localizedTabName
+        announce(newRows.isEmpty
+            ? String(localized: "\(tabName) tab, no calls", comment: "VoiceOver announcement when the recent calls tab is switched from the keyboard and the tab is empty. %@ is the tab name, e.g. \"Missed\".")
+            : detail.map { String(localized: "\(tabName) tab, \($0)", comment: "VoiceOver announcement when the recent calls tab is switched from the keyboard. First %@ is the tab name, second the selected row, e.g. \"Jane Doe, selected\".") }
+                ?? String(localized: "\(tabName) tab", comment: "VoiceOver announcement when the recent calls tab is switched from the keyboard. %@ is the tab name, e.g. \"Missed\"."))
+        return true
+    }
+
+    /// VoiceOver text for a selected row: name (or number) and details.
+    private func selectionText(_ row: DialerRow) -> String {
+        let display = row.display(contacts: model.contacts)
+        if let subtitle = display.subtitle {
+            return String(localized: "\(display.title), \(subtitle), selected", comment: "VoiceOver announcement when a row of the popover's list is selected with the keyboard. First %@ is the name or number, second the details (number, time).")
+        }
+        return String(localized: "\(display.title), selected", comment: "VoiceOver announcement when a row of the popover's list is selected with the keyboard. %@ is the name or number.")
+    }
+
+    /// The text field keeps keyboard focus while rows are selected, so VoiceOver is told explicitly.
+    private func announceSelection(_ row: DialerRow) {
+        announce(selectionText(row))
+    }
+
+    private func announce(_ text: String) {
+        AccessibilityNotification.Announcement(text).post()
     }
 
     private func leaveList() {
@@ -278,6 +349,10 @@ struct DialerView: View {
 
     // MARK: Keypad
 
+    /// Height of the keypad (five rows of 60 pt keys, 12 pt apart); the recent calls take the same.
+    static let keypadHeight: CGFloat = 5 * 60 + 4 * 12
+    static let callButtonSize: CGFloat = 28
+
     private static let keys: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["*", "0", "#"]]
 
     /// One glass key. The tap inserts the digit; a long press on "0" inserts "+" instead.
@@ -346,8 +421,8 @@ struct DialerView: View {
                 .buttonStyle(.plain)
                 .disabled(!keypadCallEnabled)
                 .opacity(keypadCallEnabled ? 1 : 0.45)
-                .accessibilityLabel(Text("Call"))
-                .help(Text("Call"))
+                .accessibilityLabel(keypadCallsRedial ? Text("Redial", comment: "Label of the keypad's call button while the field is empty: it puts the last dialed number in.") : Text("Call"))
+                .help(keypadCallsRedial ? Text("Redial") : Text("Call"))
                 .accessibilityIdentifier("keypad-call")
             }
             .frame(maxWidth: .infinity)
@@ -360,11 +435,9 @@ struct DialerView: View {
     private var content: some View {
         let rows = self.rows
         let hasLetters = text.contains(where: \.isLetter)
-        if queryIsEmpty {
-            recentCalls
-        } else if rows.isEmpty {
+        if rows.isEmpty {
             if access == .granted || !hasLetters {
-                Text("No matches").font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                Text("No matches").font(.callout).foregroundStyle(Color.rowSubtitle).frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
             }
             if access != .granted && hasLetters { accessHint }
@@ -374,7 +447,8 @@ struct DialerView: View {
         }
     }
 
-    private func resultList(_ rows: [DialerRow]) -> some View {
+    /// `fill`: take the height the parent offers (recent calls) instead of growing with the rows.
+    private func resultList(_ rows: [DialerRow], fill: Bool = false) -> some View {
         let selected = selectedIndex
         return ScrollViewReader { proxy in
             ScrollView {
@@ -382,7 +456,7 @@ struct DialerView: View {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                         Button { selectedID = row.id } label: {
                             ResultRow(row: row.display(contacts: model.contacts), selected: index == selected,
-                                      enabled: model.canDial, trailingInset: row.isRecent ? 40 : 0)
+                                      enabled: model.canDial, trailingInset: row.isRecent ? Self.callButtonSize + 8 : 0)
                         }
                         .buttonStyle(.plain)
                         .disabled(!model.canDial)
@@ -398,7 +472,7 @@ struct DialerView: View {
                     }
                 }
             }
-            .frame(maxHeight: (showKeypad ? 3 : 6) * 50)
+            .frame(maxHeight: fill ? .infinity : (showKeypad ? 3 : 6) * 50, alignment: .top)
             .onChange(of: selectedID) { _, new in
                 if let new { proxy.scrollTo(new) }
             }
@@ -408,20 +482,23 @@ struct DialerView: View {
     /// The call button at the end of a recent call row: one click dials (a service code asks first).
     private func recentCallButton(_ row: DialerRow) -> some View {
         let dialable = row.recentNumber != nil && model.canDial
+        let title = row.display(contacts: model.contacts).title
+        let label = row.recentNumber == nil ? String(localized: "Call") : String(localized: "Call \(title)")
         return Button { selectedID = row.id; activate(row) } label: {
             Image(systemName: "phone.fill")
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
+                .frame(width: Self.callButtonSize, height: Self.callButtonSize)
                 .background(Color.callGreen, in: Circle())
+                .frame(width: Self.callButtonSize + 12, height: Self.callButtonSize + 12)   // larger hit area than the circle
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .disabled(!dialable)
         .opacity(dialable ? 1 : 0.35)
-        .padding(.trailing, 10)
-        .accessibilityLabel(Text("Call"))
-        .help(Text("Call"))
+        .padding(.trailing, 2)   // circle 8 pt from the row's edge, like the avatar on the left
+        .accessibilityLabel(Text(verbatim: label))
+        .help(Text(verbatim: label))
         .accessibilityIdentifier(row.testIdentifier + "-call")
     }
 
@@ -432,39 +509,39 @@ struct DialerView: View {
         let rows = self.rows
         return VStack(spacing: 8) {
             Picker(selection: $recentListRaw) {
-                Text("Outgoing", comment: "Tab of the recent calls in the popover: calls placed from the phone.")
-                    .tag(CallHistoryList.dialed.rawValue)
-                Text("Incoming", comment: "Tab of the recent calls in the popover: answered incoming calls.")
-                    .tag(CallHistoryList.received.rawValue)
-                Text("Missed", comment: "Tab of the recent calls in the popover: missed incoming calls.")
-                    .tag(CallHistoryList.missed.rawValue)
+                ForEach(CallHistoryList.allCases, id: \.self) { list in
+                    Text(verbatim: list.localizedTabName).tag(list.rawValue)
+                }
             } label: {
                 Text("Recent Calls", comment: "VoiceOver label of the tabs above the recent calls in the popover.")
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .accessibilityIdentifier("recent-tabs")
+            .accessibilityHint(Text("Use the left and right arrow keys or Command-1 to 3 to switch tabs.", comment: "VoiceOver hint of the recent calls tabs in the popover."))
 
             if rows.isEmpty {
+                // Rows stay cached while the phone is asked again; the spinner only shows before the first answer.
                 Group {
                     if history.isLoading {
                         ProgressView().controlSize(.small)
+                            .accessibilityLabel(Text("Loading recent calls", comment: "VoiceOver label of the progress indicator while the recent calls are read from the phone."))
                     } else {
                         Text("No calls", comment: "Empty state of a recent calls tab in the popover.")
-                            .font(.callout).foregroundStyle(.secondary)
+                            .font(.callout).foregroundStyle(Color.rowSubtitle)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                resultList(rows)
+                resultList(rows, fill: true)
             }
             if history.source(recentList) == .session && !history.isLoading && history.phoneRefused {
                 Text("Calls since Pickup started. To see your phone's call history, allow access to contacts and call history in the phone's Bluetooth settings.",
                      comment: "Footnote below the recent calls when the phone did not share its call history and Pickup shows its own list.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(Color.rowSubtitle)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)   // aligned with the rows' content
             }
             if access != .granted { accessHint }
         }
@@ -520,6 +597,7 @@ struct DialerView: View {
         let rows = self.rows
         guard !rows.isEmpty else { return false }
         let index = min(max(selectedIndex + delta, 0), rows.count - 1)
+        if selectedID != rows[index].id { announceSelection(rows[index]) }
         selectedID = rows[index].id
         return true
     }
@@ -588,11 +666,26 @@ final class DialerKeyRouter {
     var escape: (() -> Bool)?
     /// Tab (false) or Shift-Tab (true); returns true when the dialer used the key.
     var tab: ((Bool) -> Bool)?
+    /// Left/right arrow: previous/next recent calls tab (only while the field is empty).
+    var switchTab: ((Int) -> Bool)?
+    /// ⌘1 to ⌘3: recent calls tab by position.
+    var selectTab: ((Int) -> Bool)?
     /// A physical dial key (0-9 * #) went down/up; drives the on-screen key highlight.
     var physicalKey: ((String, Bool) -> Void)?
 }
 
 // MARK: - Rows
+
+extension CallHistoryList {
+    /// Name of the recent calls tab.
+    var localizedTabName: String {
+        switch self {
+        case .dialed: String(localized: "Outgoing", comment: "Tab of the recent calls in the popover: calls placed from the phone.")
+        case .received: String(localized: "Incoming", comment: "Tab of the recent calls in the popover: answered incoming calls.")
+        case .missed: String(localized: "Missed", comment: "Tab of the recent calls in the popover: missed incoming calls.")
+        }
+    }
+}
 
 fileprivate extension DialerRow {
     /// UI-test identifier: `call-row`, `contact-row-<contact id>-<number index>` or `recent-row-<list>-<index>`.
@@ -678,10 +771,10 @@ private struct ResultRow: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: row.title).font(.body).lineLimit(1).truncationMode(.tail)
-                    .foregroundStyle(row.isMissed ? Color.red : Color.primary)
+                    .foregroundStyle(row.isMissed ? Color.missedRed : Color.primary)
                 if let subtitle = row.subtitle {
                     Text(verbatim: subtitle).font(.caption)
-                        .foregroundStyle(.secondary).lineLimit(1)
+                        .foregroundStyle(Color.rowSubtitle).lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
@@ -689,7 +782,13 @@ private struct ResultRow: View {
         .padding(.leading, 8)
         .padding(.trailing, 8 + trailingInset)
         .frame(height: 48)
-        .background(selected ? Color.accentColor.opacity(0.22) : .clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(selected ? Color.selectionFill : .clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            if selected {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color.selectionRing, lineWidth: 2)
+            }
+        }
         .contentShape(Rectangle())
         .opacity(enabled ? 1 : 0.5)
         .accessibilityElement(children: .combine)

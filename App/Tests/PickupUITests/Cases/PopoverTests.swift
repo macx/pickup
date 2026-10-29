@@ -34,6 +34,51 @@ final class PopoverTests: PickupUITestCase {
         XCTAssertNotNil(appLog.range(of: #"dial .*123"#, options: .regularExpression))
     }
 
+    func testRecentCallsAreReachedWithTabAndCalledWithReturn() throws {
+        try launch("outgoing-answered")
+        openPopover()
+        XCTAssertTrue(waitExists("recent-row-DC-2"), "the phone's dialed calls show while the field is empty")
+        XCTAssertFalse(element("recent-row-DC-0").isSelected, "no row starts selected: a stray Return never redials")
+        XCTAssertTrue(exists("recent-row-DC-0-call"), "every row has its own call button")
+
+        keyboard.press(Key.tab)
+        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-0").isSelected }, "Tab moves into the list")
+        keyboard.press(Key.down)
+        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-1").isSelected })
+        keyboard.press(Key.right)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-MC-0") && self.element("recent-row-MC-0").isSelected },
+                      "Right switches to the next tab and keeps the keyboard in the list")
+        keyboard.press(Key.left)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-RC-0") && self.element("recent-row-RC-0").isSelected })
+        keyboard.press(Key.left)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-DC-0") && self.element("recent-row-DC-0").isSelected })
+
+        keyboard.press(Key.escape)
+        XCTAssertTrue(Wait.until(3) { !self.element("recent-row-DC-0").isSelected }, "Esc returns to the search field")
+        XCTAssertTrue(exists("popover-root"), "…and keeps the popover open")
+        XCTAssertFalse(appLog.contains("-> dial()"), "moving through the list never dials")
+
+        keyboard.press(Key.tab)
+        keyboard.press(Key.returnKey)
+        XCTAssertTrue(waitExists("call-hud"), "Return calls the selected recent call")
+        XCTAssertNotNil(appLog.range(of: #"dial .*123"#, options: .regularExpression), "Jane's number was dialed:\n\(appLog)")
+    }
+
+    func testTogglingTheKeypadKeepsThePopoverHeight() throws {
+        try launch("idle")
+        openPopover()
+        XCTAssertTrue(waitExists("recent-row-DC-0"))
+        guard let before = stableFrame("popover-root") else { return XCTFail("no popover frame") }
+        XCTAssertTrue(element("keypad-toggle").press())
+        XCTAssertTrue(waitExists("key-5"))
+        guard let keypad = stableFrame("popover-root") else { return XCTFail("no popover frame") }
+        XCTAssertEqual(keypad.height, before.height, accuracy: 1, "the keypad takes the recent calls' place")
+        XCTAssertTrue(element("keypad-toggle").press())
+        XCTAssertTrue(waitExists("recent-row-DC-0"))
+        guard let after = stableFrame("popover-root") else { return XCTFail("no popover frame") }
+        XCTAssertEqual(after.height, before.height, accuracy: 1)
+    }
+
     func testTypingDigitsOpensTheKeypad() throws {
         try launch("idle")
         openPopover()

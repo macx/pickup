@@ -147,9 +147,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-            guard let self, event.window === self.popover.contentViewController?.view.window,
-                  event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
+            guard let self, event.window === self.popover.contentViewController?.view.window else { return event }
             let router = DialerKeyRouter.shared
+            // ⌘1 / ⌘2 / ⌘3: recent calls tabs.
+            if event.type == .keyDown, event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+               let digit = event.charactersIgnoringModifiers.flatMap(Int.init), (1...3).contains(digit) {
+                return (router.selectTab?(digit - 1) ?? false) ? nil : event
+            }
+            guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
             // Physical dial keys (main row and numpad) light up the on-screen key; typing is untouched.
             if let key = event.characters, key.count == 1, "0123456789*#".contains(key) {
                 router.physicalKey?(key, event.type == .keyDown)
@@ -159,6 +164,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             switch event.keyCode {
             case 126: return (router.move?(-1) ?? false) ? nil : event   // up
             case 125: return (router.move?(1) ?? false) ? nil : event    // down
+            case 123: return (router.switchTab?(-1) ?? false) ? nil : event  // left: previous recent calls tab
+            case 124: return (router.switchTab?(1) ?? false) ? nil : event   // right: next tab
             case 48:                                                      // tab: into the list, shift-tab: back
                 return (router.tab?(event.modifierFlags.contains(.shift)) ?? false) ? nil : event
             case 53:                                                      // esc

@@ -52,6 +52,28 @@ extension Color {
     /// symbols on them reach at least 3:1 (WCAG 1.4.11); the regular system green and orange give about 2:1.
     static let callGreen = Color(red: 0x24 / 255, green: 0x8A / 255, blue: 0x3D / 255)
     static let warningOrange = Color(red: 0xC9 / 255, green: 0x34 / 255, blue: 0x00 / 255)
+
+    // Dialer list colors, light and dark. Measured against popover backgrounds from #E4E4E4 to white
+    // (light) and #1E1E1E to #363636 (dark), also on the selection fill: text reaches 4.5:1 (WCAG
+    // 1.4.3), the selection ring 3:1 (1.4.11). The system red and secondary label stay below that.
+
+    /// Title of a missed call.
+    static let missedRed = adaptive(light: 0xA8221A, dark: 0xFFA39C)
+    /// Second line of a result or recent call row.
+    static let rowSubtitle = adaptive(light: 0x56565B, dark: 0xB4B4B9)
+    /// Outline of the selected row: the state is visible without relying on the faint fill.
+    static let selectionRing = adaptive(light: 0x0064E1, dark: 0x4DA3FF)
+    static let selectionFill = adaptive(light: 0x0064E1, dark: 0x4DA3FF, alpha: 0.15)
+
+    static func adaptive(light: UInt32, dark: UInt32, alpha: CGFloat = 1) -> Color {
+        func color(_ hex: UInt32) -> NSColor {
+            NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                    blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
+        }
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? color(dark) : color(light)
+        })
+    }
 }
 
 /// A warning or error line. The symbol carries the meaning; the text stays in the primary label color,

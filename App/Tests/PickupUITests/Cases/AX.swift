@@ -118,6 +118,8 @@ enum Key {
     static let escape: CGKeyCode = 53
     static let down: CGKeyCode = 125
     static let up: CGKeyCode = 126
+    static let left: CGKeyCode = 123
+    static let right: CGKeyCode = 124
     static let tab: CGKeyCode = 48
     static let space: CGKeyCode = 49
     static let comma: CGKeyCode = 43
