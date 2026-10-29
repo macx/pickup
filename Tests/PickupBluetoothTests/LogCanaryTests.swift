@@ -75,6 +75,14 @@ final class LogCanaryTests: XCTestCase {
         transport.receivedLine("OK", detail: nil)
         transport.receivedLine("+CNUM: ,\"\(canaryNumber)\",145,,4", detail: nil)
 
+        // Call history read from the phone (the engine's event log must not show it either).
+        transport.sentLine("AT+CPBS=\"RC\"", detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        transport.sentLine("AT+CPBR=1,25", detail: nil, channel: link.channel)
+        transport.receivedLine("+CPBR: 1,\"\(canaryNumber)\",145,\"\(canaryName)\"", detail: nil)
+        transport.receivedLine("OK", detail: nil)
+        transport.eventHandler?(.callHistory(.received, [CallHistoryEntry(number: canaryNumber, name: canaryName)]))
+
         // DTMF: a PIN typed during the call.
         for character in canaryPIN {
             try engine.sendDTMF(DTMFDigit(character)!)

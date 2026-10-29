@@ -33,6 +33,8 @@ protocol HandsFreeLink: AnyObject {
     func sendDTMF(_ digit: String)
     func transferAudioToPhone()
     func currentCallList()
+    /// Sends a raw AT command (IOBluetooth appends the CR and queues it behind pending commands).
+    func sendATCommand(_ line: String)
 
     /// True if `channel` (an `IOBluetoothRFCOMMChannel`) belongs to this link.
     func owns(channel: AnyObject) -> Bool
@@ -82,6 +84,7 @@ final class IOBluetoothHandsFreeLink: HandsFreeLink {
     func sendDTMF(_ digit: String) { device.sendDTMF(digit) }
     func transferAudioToPhone() { device.transferAudioToPhone() }
     func currentCallList() { device.currentCallList() }
+    func sendATCommand(_ line: String) { device.send(atCommand: line) }
 
     func owns(channel: AnyObject) -> Bool {
         guard let channel = channel as? IOBluetoothRFCOMMChannel else { return false }

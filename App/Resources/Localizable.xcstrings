@@ -1837,24 +1837,6 @@
         }
       }
     },
-    "Type a name or a number.": {
-      "comment": "Calm empty state of the popover when the search field is empty.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Type a name or a number."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geben Sie einen Namen oder eine Nummer ein."
-          }
-        }
-      }
-    },
     "Allow access to search contacts": {
       "comment": "Button in the popover that asks for Contacts access so names can be searched.",
       "extractionState": "manual",
@@ -2463,6 +2445,132 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wird beendet …"
+          }
+        }
+      }
+    },
+    "Outgoing": {
+      "comment": "Tab of the recent calls in the popover: calls placed from the phone.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outgoing"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgehend"
+          }
+        }
+      }
+    },
+    "Incoming": {
+      "comment": "Tab of the recent calls in the popover: answered incoming calls.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incoming"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingehend"
+          }
+        }
+      }
+    },
+    "Missed": {
+      "comment": "Tab of the recent calls in the popover: missed incoming calls.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verpasst"
+          }
+        }
+      }
+    },
+    "Recent Calls": {
+      "comment": "VoiceOver label of the tabs above the recent calls in the popover.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent Calls"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Anrufe"
+          }
+        }
+      }
+    },
+    "No calls": {
+      "comment": "Empty state of a recent calls tab in the popover.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No calls"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Anrufe"
+          }
+        }
+      }
+    },
+    "Calls since Pickup started. To see your phone's call history, allow access to contacts and call history in the phone's Bluetooth settings.": {
+      "comment": "Footnote below the recent calls when the phone did not share its call history and Pickup shows its own list.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calls since Pickup started. To see your phone's call history, allow access to contacts and call history in the phone's Bluetooth settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anrufe seit dem Start von Pickup. Um die Anrufliste des Telefons zu sehen, erlauben Sie in den Bluetooth-Einstellungen des Telefons den Zugriff auf Kontakte und Anrufliste."
+          }
+        }
+      }
+    },
+    "%lld calls": {
+      "comment": "Recent calls row: number of consecutive calls with the same number merged into this row, e.g. \"3 calls\".",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld calls"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Anrufe"
           }
         }
       }

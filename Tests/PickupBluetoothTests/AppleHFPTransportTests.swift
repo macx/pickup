@@ -41,6 +41,7 @@ final class AppleHFPTransportTests: XCTestCase {
         func sendDTMF(_ digit: String) { calls.append("VTS") }
         func transferAudioToPhone() { calls.append("phone") }
         func currentCallList() { calls.append("CLCC") }
+        func sendATCommand(_ line: String) { calls.append(line) }
         func owns(channel: AnyObject) -> Bool { channel === self.channel }
         func indicatorSnapshot() -> [HFPIndicator] { [.call(false), .callSetup(.none)] }
         func diagnostics() -> [String] { [] }
@@ -599,5 +600,69 @@ final class AppleHFPTransportTests: XCTestCase {
         XCTAssertEqual(link.count("CLCC"), 1)
         transport.receivedLine("OK", detail: nil) // AT+CLCC itself is invisible without the tap
         XCTAssertEqual(transport.linkState, .connected)
+    }
+
+    // MARK: Call history
+
+    private var historyEvents: [TransportEvent] {
+        events.filter { if case .callHistory = $0 { true } else { false } }
+    }
+
+    func testCallHistoryIsSelectedThenReadOneListAtATime() async throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        try transport.readCallHistory(.dialed, count: 2)
+        try transport.readCallHistory(.missed, count: 2)
+        XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+") }, [#"AT+CPBS="DC""#], "the second list waits for the first")
+
+        transport.sentLine(#"AT+CPBS="DC""#, detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        await drainMainQueue()   // the follow-up command is deferred out of the callback
+        XCTAssertEqual(link.calls.last, "AT+CPBR=1,2")
+
+        transport.sentLine("AT+CPBR=1,2", detail: nil, channel: link.channel)
+        transport.receivedLine(#"+CPBR: 1,"+49300000123",145,"Jane Doe""#, detail: nil)
+        transport.receivedLine(#"+CPBR: 2,"+49300000456",145,"""#, detail: nil)
+        transport.receivedLine("OK", detail: nil)
+        await drainMainQueue()
+        XCTAssertEqual(historyEvents, [.callHistory(.dialed, [
+            CallHistoryEntry(number: "+49300000123", name: "Jane Doe"), CallHistoryEntry(number: "+49300000456"),
+        ])])
+        XCTAssertEqual(link.calls.last, #"AT+CPBS="MC""#)
+
+        // The phone refuses the second list (no access to the call history).
+        transport.sentLine(#"AT+CPBS="MC""#, detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        await drainMainQueue()
+        transport.sentLine("AT+CPBR=1,2", detail: nil, channel: link.channel)
+        transport.receivedLine("+CME ERROR: 3", detail: nil)
+        XCTAssertEqual(historyEvents.last, .callHistory(.missed, nil))
+    }
+
+    func testCallHistoryNeedsTheWriteHookAndALink() throws {
+        let untapped = makeTransport(address: "aa-bb-cc-dd-ee-01", assumeOutgoingTap: false)
+        _ = connected(untapped)
+        XCTAssertThrowsError(try untapped.readCallHistory(.dialed, count: 5)) {
+            XCTAssertEqual($0 as? TransportError, .unsupported)
+        }
+        let transport = makeTransport()
+        XCTAssertThrowsError(try transport.readCallHistory(.dialed, count: 5)) {
+            XCTAssertEqual($0 as? TransportError, .notConnected)
+        }
+    }
+
+    func testLinkLossDropsQueuedCallHistoryReads() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        try transport.readCallHistory(.dialed, count: 5)
+        try transport.readCallHistory(.received, count: 5)
+        dropped(transport, link)
+        clock.advance(by: 2)
+        let again = made.last!
+        again.isConnected = true
+        transport.handsFree(again, connectedWithStatus: 0)
+        try transport.readCallHistory(.missed, count: 5)
+        XCTAssertEqual(again.calls.filter { $0.hasPrefix("AT+CPBS") }.last, #"AT+CPBS="MC""#,
+                       "a fresh link starts with the new request, not with the old queue")
     }
 }

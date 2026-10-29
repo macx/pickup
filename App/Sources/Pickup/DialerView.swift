@@ -32,6 +32,8 @@ struct DialerView: View {
     @State private var pendingConfirmationID: String?
     /// The text exactly as the keypad produced it; any other edit (typing, paste) makes it untrusted.
     @State private var keypadText: String? = ""
+    /// Tab of the recent calls shown while the field is empty (remembered between launches).
+    @AppStorage("recentCallsList") private var recentListRaw = CallHistoryList.dialed.rawValue
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -51,8 +53,23 @@ struct DialerView: View {
 
     private var fromKeypad: Bool { text.isEmpty || text == keypadText }
 
+    private var recentList: CallHistoryList { CallHistoryList(rawValue: recentListRaw) ?? .dialed }
+
+    /// Search results, or the recent calls of the selected tab while the field is empty.
     private var rows: [DialerRow] {
-        DialerRows.rows(for: text, contacts: model.contacts.search(text), fromKeypad: fromKeypad)
+        if queryIsEmpty {
+            return DialerRows.recentRows(model.callHistory.entries(recentList), list: recentList)
+        }
+        return DialerRows.rows(for: text, contacts: model.contacts.search(text), fromKeypad: fromKeypad)
+    }
+
+    /// Number the keypad's call button puts into the empty field (redial).
+    private var redialNumber: String? {
+        DialerRows.redialNumber(in: model.callHistory.entries(.dialed))
+    }
+
+    private var keypadCallEnabled: Bool {
+        model.canDial && (callRow != nil || (queryIsEmpty && redialNumber != nil))
     }
 
     private var callRow: DialerRow? {
@@ -61,7 +78,8 @@ struct DialerView: View {
 
     private var selectedIndex: Int {
         let rows = self.rows
-        return rows.firstIndex { $0.id == selectedID } ?? 0
+        // Recent calls start without a selection, so a stray Return never redials.
+        return rows.firstIndex { $0.id == selectedID } ?? (queryIsEmpty ? -1 : 0)
     }
 
     private var showKeypad: Bool {
@@ -111,6 +129,7 @@ struct DialerView: View {
             focusFieldSoon()
             DialerKeyRouter.shared.move = { delta in moveSelection(delta) }
             DialerKeyRouter.shared.escape = { handleEscape() }
+            DialerKeyRouter.shared.tab = { backwards in handleTab(backwards: backwards) }
             DialerKeyRouter.shared.physicalKey = { key, down in physicalKey(key, down: down) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .pickupPopoverWillShow)) { _ in
@@ -122,6 +141,7 @@ struct DialerView: View {
             error = nil
             selectedID = nil
             pendingConfirmationID = nil
+            model.refreshCallHistory()
             focusFieldSoon()
         }
         .onReceive(NotificationCenter.default.publisher(for: .pickupPopoverDidShow)) { _ in focusFieldSoon() }
@@ -133,6 +153,11 @@ struct DialerView: View {
             pendingConfirmationID = nil
         }
         .onChange(of: fieldFocused) { _, focused in if focused { collapseCaret() } }
+        .onChange(of: recentListRaw) { _, _ in
+            selectedID = nil
+            pendingConfirmationID = nil
+            error = nil
+        }
     }
 
     /// The window is not key yet when the popover is about to open; focus the field once it is.
@@ -155,12 +180,39 @@ struct DialerView: View {
         }
     }
 
-    /// Esc: clear the field first; with an empty field the popover closes (return false).
+    /// Esc: leave the recent calls list first, then clear the field; with an empty field the popover
+    /// closes (return false).
     private func handleEscape() -> Bool {
+        if queryIsEmpty, selectedID != nil {
+            leaveList()
+            return true
+        }
         guard !text.isEmpty else { return false }
         text = ""
         keypadText = ""
         return true
+    }
+
+    /// Tab moves from the field into the list (selects the first row), Shift-Tab back to the field.
+    /// Typing still goes to the field; Return calls the selected row.
+    private func handleTab(backwards: Bool) -> Bool {
+        let rows = self.rows
+        if backwards {
+            guard selectedID != nil, queryIsEmpty else { return false }
+            leaveList()
+            return true
+        }
+        guard !rows.isEmpty, !rows.contains(where: { $0.id == selectedID }) else { return false }
+        selectedID = rows[0].id
+        return true
+    }
+
+    private func leaveList() {
+        selectedID = nil
+        pendingConfirmationID = nil
+        error = nil
+        fieldFocused = true
+        collapseCaret()
     }
 
     // MARK: Top bar
@@ -292,8 +344,8 @@ struct DialerView: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .disabled(callRow == nil || !model.canDial)
-                .opacity(callRow == nil || !model.canDial ? 0.45 : 1)
+                .disabled(!keypadCallEnabled)
+                .opacity(keypadCallEnabled ? 1 : 0.45)
                 .accessibilityLabel(Text("Call"))
                 .help(Text("Call"))
                 .accessibilityIdentifier("keypad-call")
@@ -309,7 +361,7 @@ struct DialerView: View {
         let rows = self.rows
         let hasLetters = text.contains(where: \.isLetter)
         if queryIsEmpty {
-            emptyState
+            recentCalls
         } else if rows.isEmpty {
             if access == .granted || !hasLetters {
                 Text("No matches").font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity)
@@ -317,42 +369,105 @@ struct DialerView: View {
             }
             if access != .granted && hasLetters { accessHint }
         } else {
-            let selected = selectedIndex
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                            Button { selectedID = row.id } label: {
-                                ResultRow(row: row.display, selected: index == selected, enabled: model.canDial)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(!model.canDial)
-                            .id(row.id)
-                            .accessibilityIdentifier(row.testIdentifier)
-                            // Single click selects; double-click or Return calls (a stray click never dials).
-                            .simultaneousGesture(TapGesture(count: 2).onEnded { activate(row) })
-                            .accessibilityAction(.default) { activate(row) }
-                            .accessibilityHint(Text("Double-click or press Return to call.", comment: "VoiceOver hint of a search result row in the popover."))
-                        }
-                    }
-                }
-                .frame(maxHeight: (showKeypad ? 3 : 6) * 50)
-                .onChange(of: selectedID) { _, new in
-                    if let new { proxy.scrollTo(new) }
-                }
-            }
+            resultList(rows)
             if access != .granted && hasLetters { accessHint }
         }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 6) {
-            if access != .granted { accessHint }
-            Text("Type a name or a number.", comment: "Calm empty state of the popover when the search field is empty.")
-                .font(.callout).foregroundStyle(.secondary)
+    private func resultList(_ rows: [DialerRow]) -> some View {
+        let selected = selectedIndex
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                        Button { selectedID = row.id } label: {
+                            ResultRow(row: row.display(contacts: model.contacts), selected: index == selected,
+                                      enabled: model.canDial, trailingInset: row.isRecent ? 40 : 0)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!model.canDial)
+                        .id(row.id)
+                        .accessibilityIdentifier(row.testIdentifier)
+                        // Single click selects; double-click or Return calls (a stray click never dials).
+                        .simultaneousGesture(TapGesture(count: 2).onEnded { activate(row) })
+                        .accessibilityAction(.default) { activate(row) }
+                        .accessibilityHint(Text("Double-click or press Return to call.", comment: "VoiceOver hint of a search result row in the popover."))
+                        .overlay(alignment: .trailing) {
+                            if row.isRecent { recentCallButton(row) }
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: (showKeypad ? 3 : 6) * 50)
+            .onChange(of: selectedID) { _, new in
+                if let new { proxy.scrollTo(new) }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
+    }
+
+    /// The call button at the end of a recent call row: one click dials (a service code asks first).
+    private func recentCallButton(_ row: DialerRow) -> some View {
+        let dialable = row.recentNumber != nil && model.canDial
+        return Button { selectedID = row.id; activate(row) } label: {
+            Image(systemName: "phone.fill")
+                .font(.system(size: 13))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Color.callGreen, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!dialable)
+        .opacity(dialable ? 1 : 0.35)
+        .padding(.trailing, 10)
+        .accessibilityLabel(Text("Call"))
+        .help(Text("Call"))
+        .accessibilityIdentifier(row.testIdentifier + "-call")
+    }
+
+    // MARK: Recent calls
+
+    private var recentCalls: some View {
+        let history = model.callHistory
+        let rows = self.rows
+        return VStack(spacing: 8) {
+            Picker(selection: $recentListRaw) {
+                Text("Outgoing", comment: "Tab of the recent calls in the popover: calls placed from the phone.")
+                    .tag(CallHistoryList.dialed.rawValue)
+                Text("Incoming", comment: "Tab of the recent calls in the popover: answered incoming calls.")
+                    .tag(CallHistoryList.received.rawValue)
+                Text("Missed", comment: "Tab of the recent calls in the popover: missed incoming calls.")
+                    .tag(CallHistoryList.missed.rawValue)
+            } label: {
+                Text("Recent Calls", comment: "VoiceOver label of the tabs above the recent calls in the popover.")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityIdentifier("recent-tabs")
+
+            if rows.isEmpty {
+                Group {
+                    if history.isLoading {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Text("No calls", comment: "Empty state of a recent calls tab in the popover.")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            } else {
+                resultList(rows)
+            }
+            if history.source(recentList) == .session && !history.isLoading && history.phoneRefused {
+                Text("Calls since Pickup started. To see your phone's call history, allow access to contacts and call history in the phone's Bluetooth settings.",
+                     comment: "Footnote below the recent calls when the phone did not share its call history and Pickup shows its own list.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if access != .granted { accessHint }
+        }
     }
 
     @ViewBuilder
@@ -416,7 +531,16 @@ struct DialerView: View {
         if rows.indices.contains(selectedIndex) { activate(rows[selectedIndex]) }
     }
 
+    /// The keypad's call button. With an empty field it puts the last dialed number in (redial);
+    /// the next press calls it.
     private func placeTypedCall() {
+        if queryIsEmpty, let number = redialNumber {
+            text = number
+            keypadText = nil   // came from the phone, not from the keypad: service codes need a confirmation
+            fieldFocused = true
+            collapseCaret()
+            return
+        }
         if let row = callRow { activate(row) }
     }
 
@@ -427,6 +551,12 @@ struct DialerView: View {
         case .call(let n): number = n
         case .contact(let result):
             guard let n = DialNumber(result.number) else {
+                error = String(localized: "This number cannot be dialed.", comment: "Inline error when a contact's number is not a valid phone number.")
+                return
+            }
+            number = n
+        case .recent(_, let n, _):
+            guard let n else {
                 error = String(localized: "This number cannot be dialed.", comment: "Inline error when a contact's number is not a valid phone number.")
                 return
             }
@@ -456,6 +586,8 @@ final class DialerKeyRouter {
     static let shared = DialerKeyRouter()
     var move: ((Int) -> Bool)?
     var escape: (() -> Bool)?
+    /// Tab (false) or Shift-Tab (true); returns true when the dialer used the key.
+    var tab: ((Bool) -> Bool)?
     /// A physical dial key (0-9 * #) went down/up; drives the on-screen key highlight.
     var physicalKey: ((String, Bool) -> Void)?
 }
@@ -463,15 +595,44 @@ final class DialerKeyRouter {
 // MARK: - Rows
 
 fileprivate extension DialerRow {
-    /// UI-test identifier: `call-row` or `contact-row-<contact id>-<number index>`.
+    /// UI-test identifier: `call-row`, `contact-row-<contact id>-<number index>` or `recent-row-<list>-<index>`.
     var testIdentifier: String {
         switch kind {
         case .call: "call-row"
         case .contact: "contact-row-" + id.replacingOccurrences(of: "|", with: "-")
+        case .recent: id.replacingOccurrences(of: "recent|", with: "recent-row-").replacingOccurrences(of: "|", with: "-")
         }
     }
 
-    var display: ResultRow.Display {
+    var isRecent: Bool { if case .recent = kind { true } else { false } }
+
+    var recentNumber: DialNumber? { if case .recent(_, let number, _) = kind { number } else { nil } }
+
+    @MainActor
+    func display(contacts: ContactsDirectory) -> ResultRow.Display {
+        switch kind {
+        case .recent(let entry, _, let list):
+            // The Mac's contact (with photo) wins over the name the phone sent.
+            let match = entry.number.isEmpty ? nil : contacts.match(for: entry.number)
+            let name = match?.name ?? entry.name
+            let formatted = entry.number.isEmpty ? nil : PhoneNumberFormat.display(entry.number)
+            let title = name ?? formatted
+                ?? String(localized: "Unknown caller")
+            var details: [String] = []
+            if name != nil, let formatted { details.append(formatted) }
+            if let date = entry.date { details.append(date.formatted(.relative(presentation: .named))) }
+            if entry.count > 1 {
+                details.append(String(localized: "\(entry.count) calls", comment: "Recent calls row: number of consecutive calls with the same number merged into this row, e.g. \"3 calls\"."))
+            }
+            return .init(title: title, subtitle: details.isEmpty ? nil : details.joined(separator: " · "),
+                         party: CallParty(displayName: name, number: formatted, avatarPNG: match?.imageData),
+                         isCall: false, warning: false, isMissed: list == .missed)
+        default:
+            return display
+        }
+    }
+
+    private var display: ResultRow.Display {
         switch kind {
         case .call(let number):
             .init(title: String(localized: "Call \(PhoneNumberFormat.display(number.value))",
@@ -479,21 +640,29 @@ fileprivate extension DialerRow {
                   subtitle: requiresConfirmation
                       ? String(localized: "Service code", comment: "Warning subtitle on the call row when the text is a service code (contains * or #), e.g. call forwarding.")
                       : nil,
-                  party: nil, isCall: true, warning: requiresConfirmation)
+                  party: nil, isCall: true, warning: requiresConfirmation, isMissed: false)
         case .contact(let result):
             .init(title: result.name,
                   subtitle: [result.label, PhoneNumberFormat.display(result.number)].compactMap { $0 }.joined(separator: " · "),
                   party: CallParty(displayName: result.name, number: nil, avatarPNG: result.imageData),
-                  isCall: false, warning: false)
+                  isCall: false, warning: false, isMissed: false)
+        case .recent:
+            .init(title: "", subtitle: nil, party: nil, isCall: false, warning: false, isMissed: false)
         }
     }
 }
 
 private struct ResultRow: View {
-    struct Display { var title: String; var subtitle: String?; var party: CallParty?; var isCall: Bool; var warning: Bool }
+    struct Display {
+        var title: String; var subtitle: String?; var party: CallParty?; var isCall: Bool; var warning: Bool
+        /// Missed calls are titled in red, like in the Phone app.
+        var isMissed: Bool
+    }
     let row: Display
     let selected: Bool
     let enabled: Bool
+    /// Room kept free at the end for a button laid over the row.
+    var trailingInset: CGFloat = 0
 
     var body: some View {
         HStack(spacing: 10) {
@@ -509,6 +678,7 @@ private struct ResultRow: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: row.title).font(.body).lineLimit(1).truncationMode(.tail)
+                    .foregroundStyle(row.isMissed ? Color.red : Color.primary)
                 if let subtitle = row.subtitle {
                     Text(verbatim: subtitle).font(.caption)
                         .foregroundStyle(.secondary).lineLimit(1)
@@ -516,7 +686,8 @@ private struct ResultRow: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
+        .padding(.leading, 8)
+        .padding(.trailing, 8 + trailingInset)
         .frame(height: 48)
         .background(selected ? Color.accentColor.opacity(0.22) : .clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .contentShape(Rectangle())

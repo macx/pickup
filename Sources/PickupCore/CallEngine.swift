@@ -35,6 +35,13 @@ public final class CallEngine {
         /// A call lost with the link is resumed (same ID, number, start time) if the link comes back
         /// within this window and the phone still reports a call.
         public var lostCallRestoreWindow: TimeInterval = 120
+        /// Entries read per call list from the phone.
+        public var callHistoryLength = 25
+        /// Delay before the call lists are read after the link came up or a call ended (the phone
+        /// writes its call log shortly after the call).
+        public var callHistoryRefreshDelay: TimeInterval = 2
+        /// `refreshCallHistory()` does nothing if the lists were requested less than this ago.
+        public var callHistoryMinimumInterval: TimeInterval = 15
 
         public init() {}
     }
@@ -58,6 +65,8 @@ public final class CallEngine {
     public private(set) var lastAudioFallback: AudioFallback?
     /// Most recent call command the phone rejected (accept, end, dial, DTMF).
     public private(set) var lastCommandFailure: CommandFailure?
+    /// Recent calls: the phone's call lists, or the calls seen since launch.
+    public private(set) var callHistory = CallHistory()
     /// User setting "Take calls on this Mac". Off by default until the audio extension ships.
     public var takeCallsOnMac = false
 
@@ -102,6 +111,8 @@ public final class CallEngine {
     @ObservationIgnored private var dialTimeoutTask: ScheduledTask?
     @ObservationIgnored private var lookupRetryTask: ScheduledTask?
     @ObservationIgnored private var audioWatchdogTask: ScheduledTask?
+    @ObservationIgnored private var historyRefreshTask: ScheduledTask?
+    @ObservationIgnored private var lastHistoryRequest: Date?
 
     public init(
         transport: HFPTransport,
@@ -150,7 +161,7 @@ public final class CallEngine {
         transport.invalidate()
         transport.eventHandler = nil
         linkStateChanged(.disconnected)
-        for task in [setupEndTask, endedClearTask, dialTimeoutTask, lookupRetryTask, audioWatchdogTask] {
+        for task in [setupEndTask, endedClearTask, dialTimeoutTask, lookupRetryTask, audioWatchdogTask, historyRefreshTask] {
             task?.cancel()
         }
     }
@@ -256,6 +267,16 @@ public final class CallEngine {
     }
 
     /// Asks the phone for the current call list again (refreshes the number).
+    /// Reads the call lists from the phone again (e.g. when the dialer opens). Skipped while a call is
+    /// live, while a read is running, or if the last read started less than
+    /// `callHistoryMinimumInterval` ago. Without an answer the session list stays in use.
+    public func refreshCallHistory() {
+        if let last = lastHistoryRequest, scheduler.now.timeIntervalSince(last) < configuration.callHistoryMinimumInterval {
+            return
+        }
+        requestCallHistory()
+    }
+
     public func refreshCallList() {
         requestCallList(resetAttempts: true)
     }
@@ -312,6 +333,8 @@ public final class CallEngine {
             currentCallsReceived(calls)
         case .commandCompleted(let command, let result):
             commandCompleted(command, result)
+        case .callHistory(let list, let entries):
+            callHistory.received(list, entries: entries)
         case .audioConnectionChanged(let isOpen):
             audioConnectionChanged(isOpen: isOpen)
         }
@@ -329,6 +352,7 @@ public final class CallEngine {
                 requestCallList(resetAttempts: true)
             }
             callListWantedOnConnect = false
+            scheduleHistoryRefresh()
             // SCO opened during the SLC set-up and could not be handed back then.
             if audioRoute == .mac, !isAudioOnMacEnabled {
                 handBackAudioToPhone(.audioOnMacDisabled)
@@ -337,6 +361,9 @@ public final class CallEngine {
         }
         // Indicators belong to one SLC; the next one reports them afresh.
         indicators = HFPIndicators()
+        callHistory.cancelPending()
+        historyRefreshTask?.cancel()
+        historyRefreshTask = nil
         waitingCall = nil
         audioRoute = .phone
         // A hand-back deferred by the transport is dropped when the link goes down.
@@ -537,6 +564,8 @@ public final class CallEngine {
             if call?.callerID == .unknown, call?.phase.isLive == true {
                 scheduleLookupRetry()
             }
+        case .selectPhonebook, .readPhonebook:
+            break // Reported as `.callHistory` by the transport.
         case .other:
             break // Commands IOBluetooth sends on its own (SMS probing etc.) fail routinely.
         }
@@ -661,6 +690,8 @@ public final class CallEngine {
             self.call = nil
             self.log.log(.state, "idle")
         }
+        callHistory.record(call)
+        if reason != .connectionLost { scheduleHistoryRefresh() }
         onCallFinished?(call)
     }
 
@@ -709,6 +740,33 @@ public final class CallEngine {
             self.lookupRetryTask = nil
             guard self.call?.id == id, self.phase.isLive, self.call?.callerID == .unknown else { return }
             self.requestCallList(resetAttempts: false)
+        }
+    }
+
+    /// Reads the call lists a little later: after the link came up or a call ended. A phone that
+    /// refused before is not asked again automatically (only when the dialer opens).
+    private func scheduleHistoryRefresh() {
+        guard lastHistoryRequest == nil || !callHistory.phoneRefused else { return }
+        historyRefreshTask?.cancel()
+        historyRefreshTask = scheduler.schedule(after: configuration.callHistoryRefreshDelay) { [weak self] in
+            guard let self else { return }
+            self.historyRefreshTask = nil
+            self.requestCallHistory()
+        }
+    }
+
+    private func requestCallHistory() {
+        guard !isInvalidated, linkState == .connected, !phase.isLive, !callHistory.isLoading else { return }
+        lastHistoryRequest = scheduler.now
+        log.log(.command, "read call history -> readCallHistory()")
+        for list in CallHistoryList.allCases {
+            do {
+                try transport.readCallHistory(list, count: configuration.callHistoryLength)
+                callHistory.requested(list)
+            } catch {
+                log.log(.info, "readCallHistory(\(list.rawValue)) unavailable: \(error)")
+                callHistory.received(list, entries: nil)
+            }
         }
     }
 

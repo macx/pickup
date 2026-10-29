@@ -60,6 +60,7 @@ final class MockHFPTransport: HFPTransport {
     enum Command: Equatable {
         case connect, disconnect, reconnect, prepareForSleep, resumeAfterSleep, invalidate
         case acceptCallOnPhone, endCall, dial(String), sendDTMF(String), transferAudioToPhone, requestCurrentCalls
+        case readCallHistory(CallHistoryList)
     }
 
     var supportsAudio = false
@@ -134,6 +135,12 @@ final class MockHFPTransport: HFPTransport {
         try record(.transferAudioToPhone)
     }
     func requestCurrentCalls() throws { try record(.requestCurrentCalls) }
+    /// Off by default (like a phone that does not share its call history), so other tests see no extra commands.
+    var supportsCallHistory = false
+    func readCallHistory(_ list: CallHistoryList, count: Int) throws {
+        guard supportsCallHistory else { throw TransportError.unsupported }
+        try record(.readCallHistory(list))
+    }
 }
 
 /// Collects log lines in memory.

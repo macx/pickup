@@ -82,6 +82,18 @@ final class ScriptedTransport: HFPTransport {
         }
     }
 
+    /// The phone's call lists (invented): it shares them like a Pixel that was granted access.
+    func readCallHistory(_ list: CallHistoryList, count: Int) throws {
+        try requireLink()
+        let entries: [CallHistoryEntry] = switch list {
+        case .dialed: [CallHistoryEntry(number: Self.jane, name: "Jane Doe"), CallHistoryEntry(number: Self.john, name: "John Roe"),
+                       CallHistoryEntry(number: Self.jane, name: "Jane Doe")]
+        case .received: [CallHistoryEntry(number: Self.john, name: "John Roe")]
+        case .missed: [CallHistoryEntry(number: Self.jane, name: "Jane Doe"), CallHistoryEntry(number: "")]
+        }
+        later { [self] in emit(.callHistory(list, Array(entries.prefix(count)))) }
+    }
+
     // MARK: Phone side (driven by the scenario)
 
     func ringIncoming(number: String?) {

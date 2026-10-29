@@ -159,6 +159,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             switch event.keyCode {
             case 126: return (router.move?(-1) ?? false) ? nil : event   // up
             case 125: return (router.move?(1) ?? false) ? nil : event    // down
+            case 48:                                                      // tab: into the list, shift-tab: back
+                return (router.tab?(event.modifierFlags.contains(.shift)) ?? false) ? nil : event
             case 53:                                                      // esc
                 if router.escape?() == true { return nil }
                 self.closePopover()

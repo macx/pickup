@@ -135,6 +135,10 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     private var incomingSanitizer = ATLogSanitizer()
     private let outgoingTapInstalled: Bool
     private var fallbackCalls: [HFPCall] = []
+    /// Call lists still to be read, in request order.
+    private var historyQueue: [(list: CallHistoryList, count: Int)] = []
+    /// The call list read in progress: the phonebook is being selected, then read.
+    private var historyStep: (list: CallHistoryList, count: Int, reading: Bool)?
     private var fallbackFlush: ScheduledTask?
     private var connectObserver: AnyObject?
 
@@ -294,6 +298,46 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
             }
             link.currentCallList()
         }
+    }
+
+    public func readCallHistory(_ list: CallHistoryList, count: Int) throws {
+        guard !isInvalidated else { throw TransportError.invalidated }
+        // Without the write hook, the phone's answers cannot be matched to the commands.
+        guard outgoingTapInstalled else { throw TransportError.unsupported }
+        guard linkState == .connected, link != nil else { throw TransportError.notConnected }
+        historyQueue.append((list, max(1, count)))
+        sendNextHistoryCommand()
+    }
+
+    /// Starts the next queued call list read: `AT+CPBS="<list>"`, then `AT+CPBR=1,<count>` once the
+    /// phone selected it (see `historyExchangeEnded`).
+    private func sendNextHistoryCommand() {
+        guard historyStep == nil, !historyQueue.isEmpty else { return }
+        let next = historyQueue.removeFirst()
+        historyStep = (next.list, next.count, false)
+        sendHistoryCommand("AT+CPBS=\"\(next.list.rawValue)\"")
+    }
+
+    private func sendHistoryCommand(_ line: String) {
+        do {
+            try issue("sendATCommand(\(line))") { $0.sendATCommand(line) }
+        } catch {
+            historyExchangeEnded(nil)
+        }
+    }
+
+    /// The phone answered the current call list command (nil = failed, discarded or not sent).
+    private func historyExchangeEnded(_ exchange: ATExchange?) {
+        guard let step = historyStep else { return }
+        if let exchange, exchange.result.isSuccess, !step.reading {
+            historyStep = (step.list, step.count, true)
+            sendHistoryCommand("AT+CPBR=1,\(step.count)")
+            return
+        }
+        historyStep = nil
+        let entries = exchange.flatMap { $0.result.isSuccess ? $0.responses.compactMap(ATParser.parseCPBR) : nil }
+        emit(.callHistory(step.list, entries))
+        sendNextHistoryCommand()
     }
 
     /// Checks the link now and runs the command on it, deferred to the next main-queue turn if an
@@ -616,6 +660,8 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         }
         if state != .connected {
             tracker.reset()
+            historyQueue.removeAll()
+            historyStep = nil
         }
         emit(.linkStateChanged(state))
     }
@@ -702,6 +748,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
                 break // Indicators, RING and +CLIP arrive through the delegate.
             case .discarded(let command):
                 log.log(.warning, "no reply to \(command); dropped from the command queue")
+                if command == .selectPhonebook || command == .readPhonebook { historyExchangeEnded(nil) }
             case .completed(let exchange):
                 if isVerifyingSLC, exchange.command == .currentCalls, let link {
                     log.log(.state, "[\(linkTag)] SLC answered AT+CLCC (\(exchange.result)); adopting it")
@@ -711,6 +758,9 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
                     emit(.currentCalls(exchange.currentCalls))
                 }
                 emit(.commandCompleted(exchange.command, exchange.result))
+                if exchange.command == .selectPhonebook || exchange.command == .readPhonebook {
+                    historyExchangeEnded(exchange)
+                }
             }
         }
     }
@@ -729,7 +779,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     /// to an SLC nobody wants (e.g. one completing during a disconnect).
     private func emit(_ event: TransportEvent) {
         switch event {
-        case .indicator, .ring, .callerID, .callWaiting, .currentCalls, .commandCompleted:
+        case .indicator, .ring, .callerID, .callWaiting, .currentCalls, .commandCompleted, .callHistory:
             guard linkState == .connecting || linkState == .connected else {
                 log.log(.state, "dropped \(event) while \(linkState.rawValue) [\(linkTag)]")
                 return

@@ -46,6 +46,8 @@ final class AppModel {
     private(set) var notice: String?
     private(set) var selectedAddress: String?
     private(set) var selectedName: String?
+    /// Recent calls for the dialer: the phone's call lists, or the calls seen since launch.
+    private(set) var callHistory = CallHistory()
 
     let callUI = CallUIModel()
     let contacts = ContactsDirectory()
@@ -128,6 +130,9 @@ final class AppModel {
     }
 
     func reconnect() { engine?.reconnect() }
+
+    /// The dialer opened: read the phone's call lists again (throttled by the engine).
+    func refreshCallHistory() { engine?.refreshCallHistory() }
 
     /// App termination: release the transport cleanly.
     func shutdown() { teardown() }
@@ -216,6 +221,7 @@ final class AppModel {
             engine.nextReconnectAttempt != nil ? .reconnecting(phoneName: phoneName) : .disconnected(phoneName: phoneName)
         }
         set(\.connection, status)
+        set(\.callHistory, engine.callHistory)
         trackStuckLink(connected: link == .connected)
         set(\.guidance, bluetoothDenied ? .bluetoothDenied
             : (showCannotConnect && link != .connected ? .cannotConnect(phoneName: engine.deviceName ?? selectedName) : linkHint))

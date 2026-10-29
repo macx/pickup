@@ -24,6 +24,9 @@ public enum TransportEvent: Equatable, Sendable {
     case currentCalls([HFPCall])
     /// The phone answered a command with its final result code.
     case commandCompleted(HFPCommand, CommandResult)
+    /// A call list read with `readCallHistory`, newest first; nil = the phone refused it (no access
+    /// to the call history granted), does not support it or did not answer.
+    case callHistory(CallHistoryList, [CallHistoryEntry]?)
     /// The audio link (SCO) opened or closed. Remote-control transports may still report it,
     /// because the phone can open SCO on its own; the core then hands the audio back.
     case audioConnectionChanged(isOpen: Bool)
@@ -88,4 +91,14 @@ public protocol HFPTransport: AnyObject {
     func transferAudioToPhone() throws
     /// Asks for the current call list. `AT+CLCC`; the answer arrives as `.currentCalls`.
     func requestCurrentCalls() throws
+    /// Reads the newest `count` entries of a call list (`AT+CPBS="DC"`, then `AT+CPBR=1,<count>`).
+    /// The answer arrives as `.callHistory`. Requests are queued and answered in order.
+    func readCallHistory(_ list: CallHistoryList, count: Int) throws
+}
+
+public extension HFPTransport {
+    /// Transports without access to the phone's call lists.
+    func readCallHistory(_ list: CallHistoryList, count: Int) throws {
+        throw TransportError.unsupported
+    }
 }
