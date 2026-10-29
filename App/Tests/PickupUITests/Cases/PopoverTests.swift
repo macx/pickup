@@ -64,19 +64,34 @@ final class PopoverTests: PickupUITestCase {
         XCTAssertNotNil(appLog.range(of: #"dial .*123"#, options: .regularExpression), "Jane's number was dialed:\n\(appLog)")
     }
 
-    func testTogglingTheKeypadKeepsThePopoverHeight() throws {
-        try launch("idle")
-        openPopover()
-        XCTAssertTrue(waitExists("recent-row-DC-0"))
-        guard let before = stableFrame("popover-root") else { return XCTFail("no popover frame") }
-        XCTAssertTrue(element("keypad-toggle").press())
-        XCTAssertTrue(waitExists("key-5"))
-        guard let keypad = stableFrame("popover-root") else { return XCTFail("no popover frame") }
-        XCTAssertEqual(keypad.height, before.height, accuracy: 1, "the keypad takes the recent calls' place")
-        XCTAssertTrue(element("keypad-toggle").press())
-        XCTAssertTrue(waitExists("recent-row-DC-0"))
-        guard let after = stableFrame("popover-root") else { return XCTFail("no popover frame") }
-        XCTAssertEqual(after.height, before.height, accuracy: 1)
+    /// Neither the popover nor the top bar may move when the keypad replaces the recent calls, in
+    /// English and in German (the native segmented control used to widen the content in German).
+    func testTogglingTheKeypadKeepsTheLayoutSteady() throws {
+        for language in ["en", "de"] {
+            try launch("idle", language: language)
+            openPopover()
+            XCTAssertTrue(waitExists("recent-row-DC-0"))
+            guard let before = stableFrame("popover-root"), let field = stableFrame("search-field"),
+                  let tabs = stableFrame("recent-tabs") else { return XCTFail("[\(language)] no frames") }
+            XCTAssertEqual(tabs.minX, before.minX + 16, accuracy: 1, "[\(language)] tabs start at the content margin")
+            XCTAssertEqual(tabs.maxX, before.maxX - 16, accuracy: 1, "[\(language)] tabs end at the content margin")
+            XCTAssertTrue(element("keypad-toggle").press())
+            XCTAssertTrue(waitExists("key-5"))
+            guard let keypad = stableFrame("popover-root"), let keypadField = stableFrame("search-field") else {
+                return XCTFail("[\(language)] no frames")
+            }
+            XCTAssertEqual(keypad.height, before.height, accuracy: 1, "[\(language)] the keypad takes the recent calls' place")
+            XCTAssertEqual(keypadField.minX, field.minX, accuracy: 0.5, "[\(language)] the search field does not move")
+            XCTAssertEqual(keypadField.width, field.width, accuracy: 0.5, "[\(language)] the search field keeps its width")
+            XCTAssertTrue(element("keypad-toggle").press())
+            XCTAssertTrue(waitExists("recent-row-DC-0"))
+            guard let after = stableFrame("popover-root"), let afterField = stableFrame("search-field") else {
+                return XCTFail("[\(language)] no frames")
+            }
+            XCTAssertEqual(after.height, before.height, accuracy: 1)
+            XCTAssertEqual(afterField.minX, field.minX, accuracy: 0.5)
+            terminateApp()
+        }
     }
 
     func testTypingDigitsOpensTheKeypad() throws {

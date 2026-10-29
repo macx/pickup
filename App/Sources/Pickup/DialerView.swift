@@ -108,6 +108,7 @@ struct DialerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             topBar
+                .frame(width: Self.contentWidth)
             if let guidance = model.guidance {
                 GuidanceCard(guidance: guidance, model: model, openSettings: openSettings)
             }
@@ -128,10 +129,11 @@ struct DialerView: View {
                         recentCalls.transition(.opacity)
                     }
                 }
-                .frame(height: Self.keypadHeight, alignment: .top)
+                .frame(width: Self.contentWidth, height: Self.keypadHeight, alignment: .top)
             }
             if !queryIsEmpty {
                 content
+                    .frame(width: Self.contentWidth)
             }
             if let error {
                 StatusMessage(text: error, kind: .error)
@@ -350,12 +352,12 @@ struct DialerView: View {
 
     // MARK: Keypad
 
-    /// Keys fill the content width (popover 300 pt minus 2 × 16 pt), so the keypad has the same side
-    /// margins as the top bar and the lists.
-    static let keySize: CGFloat = 68
-    /// Width of everything between the popover's 16 pt side margins.
+    static let keySize: CGFloat = 60
+    /// Width of everything between the popover's 16 pt side margins. Every block of the dialer gets
+    /// exactly this width: a child with a larger ideal width (the native segmented control in German,
+    /// a legacy scroller) used to widen the popover's content and shift it sideways.
     static let contentWidth: CGFloat = 300 - 2 * 16
-    static let keyColumnSpacing: CGFloat = (contentWidth - 3 * keySize) / 2
+    static let keyColumnSpacing: CGFloat = 16
     static let keyRowSpacing: CGFloat = 12
     /// Height of the keypad (four rows of keys and the call button); the recent calls take the same.
     static let keypadHeight: CGFloat = 5 * keySize + 4 * keyRowSpacing
@@ -374,7 +376,7 @@ struct DialerView: View {
         } label: {
             VStack(spacing: -2) {
                 Text(verbatim: key)
-                    .font(.system(size: 26, weight: .regular, design: .rounded))
+                    .font(.system(size: 24, weight: .regular, design: .rounded))
                 if let glyph = KeypadKey.secondaryGlyph(for: key) {
                     Text(verbatim: glyph).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                         .accessibilityIdentifier("key-plus")
@@ -420,7 +422,7 @@ struct DialerView: View {
                 }
                 Button(action: placeTypedCall) {
                     Image(systemName: "phone.fill")
-                        .font(.system(size: 26))
+                        .font(.system(size: 24))
                         .foregroundStyle(.white)
                         .frame(width: Self.keySize, height: Self.keySize)
                         .glassEffect(.regular.tint(.callGreen).interactive(), in: Circle())
@@ -521,16 +523,8 @@ struct DialerView: View {
         let history = model.callHistory
         let rows = self.rows
         return VStack(spacing: 8) {
-            Picker(selection: $recentListRaw) {
-                ForEach(CallHistoryList.allCases, id: \.self) { list in
-                    Text(verbatim: list.localizedTabName).tag(list.rawValue)
-                }
-            } label: {
-                Text("Recent Calls", comment: "VoiceOver label of the tabs above the recent calls in the popover.")
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .accessibilityIdentifier("recent-tabs")
+            RecentCallsTabs(selection: $recentListRaw)
+                .accessibilityIdentifier("recent-tabs")
             .accessibilityHint(Text("Use the left and right arrow keys or Command-1 to 3 to switch tabs.", comment: "VoiceOver hint of the recent calls tabs in the popover."))
 
             if rows.isEmpty {
@@ -830,5 +824,50 @@ private struct PlusLongPress: ViewModifier {
 private struct SteadyPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.opacity(configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+/// Tabs above the recent calls: equal segments that always fill the given width exactly. The native
+/// segmented control sizes itself from its labels and grew wider than the popover with the German
+/// texts, which shifted the whole content. VoiceOver still gets a real segmented picker.
+private struct RecentCallsTabs: View {
+    @Binding var selection: String
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(CallHistoryList.allCases, id: \.self) { list in
+                let selected = selection == list.rawValue
+                Button { selection = list.rawValue } label: {
+                    Text(verbatim: list.localizedTabName)
+                        .font(.callout.weight(selected ? .semibold : .regular))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 24)
+                        .background {
+                            if selected {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(Color.selectionFill)
+                                    .strokeBorder(Color.selectionRing, lineWidth: 1.5)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .accessibilityRepresentation {
+            Picker(selection: $selection) {
+                ForEach(CallHistoryList.allCases, id: \.self) { list in
+                    Text(verbatim: list.localizedTabName).tag(list.rawValue)
+                }
+            } label: {
+                Text("Recent Calls", comment: "VoiceOver label of the tabs above the recent calls in the popover.")
+            }
+            .pickerStyle(.segmented)
+        }
     }
 }
