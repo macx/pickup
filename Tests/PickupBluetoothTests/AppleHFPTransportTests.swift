@@ -16,6 +16,8 @@ final class AppleHFPTransportTests: XCTestCase {
         var disconnectDropsSLC = false
         var onClosed: (@MainActor () -> Void)?
         var deviceName: String? = "Pixel 9 Pro"
+        var audioGatewayFeatures: UInt32 = 0
+        var callHoldModes: UInt32 = 0
         var underlying: AnyObject { self }
         private(set) var calls: [String] = []
         private(set) var delegates: [HandsFreeDelegate] = []
@@ -606,6 +608,29 @@ final class AppleHFPTransportTests: XCTestCase {
 
     private var historyEvents: [TransportEvent] {
         events.filter { if case .callHistory = $0 { true } else { false } }
+    }
+
+    func testCallHoldNeedsThreeWayCallingAndReportsTheAnswer() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        XCTAssertFalse(transport.supportsCallHold)
+        XCTAssertThrowsError(try transport.callHold(.holdActiveAcceptOther)) { XCTAssertEqual($0 as? TransportError, .unsupported) }
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CHLD") })
+
+        link.audioGatewayFeatures = 0b1   // three-way calling
+        link.callHoldModes = 0b1011       // CHLD 0, 1 and 2
+        XCTAssertTrue(transport.supportsCallHold)
+        try transport.callHold(.holdActiveAcceptOther)
+        XCTAssertEqual(link.calls.last, "AT+CHLD=2")
+        transport.sentLine("AT+CHLD=2", detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        XCTAssertTrue(events.contains(.commandCompleted(.callHold, .ok)))
+    }
+
+    func testCallHoldSupportNeedsModesZeroOneAndTwo() {
+        XCTAssertTrue(AppleHFPTransport.supportsCallHold(features: 0x3ef, holdModes: 0x7f))
+        XCTAssertFalse(AppleHFPTransport.supportsCallHold(features: 0x3ee, holdModes: 0x7f), "no three-way calling bit")
+        XCTAssertFalse(AppleHFPTransport.supportsCallHold(features: 0x1, holdModes: 0b0011), "mode 2 missing")
     }
 
     func testCallHistoryIsSelectedThenReadOneListAtATime() async throws {

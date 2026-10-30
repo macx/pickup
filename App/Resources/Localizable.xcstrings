@@ -2988,6 +2988,150 @@
           }
         }
       }
+    },
+    "Hold": {
+      "comment": "Button in the call window that puts the call on hold.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halten"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "comment": "Button in the call window that takes the call off hold.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsetzen"
+          }
+        }
+      }
+    },
+    "Swap": {
+      "comment": "Button in the call window that swaps between the active call and the call on hold.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swap"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makeln"
+          }
+        }
+      }
+    },
+    "Swap to %@": {
+      "comment": "VoiceOver label of the button that swaps to the call on hold. %@ is the caller's name or number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swap to %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu %@ wechseln"
+          }
+        }
+      }
+    },
+    "End call with %@": {
+      "comment": "VoiceOver label of the button that ends the call on hold. %@ is the caller's name or number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End call with %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anruf mit %@ beenden"
+          }
+        }
+      }
+    },
+    "Hold & Accept": {
+      "comment": "Button in the call window when a second call comes in: puts the current call on hold and answers the new one.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold & Accept"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halten und annehmen"
+          }
+        }
+      }
+    },
+    "End & Accept": {
+      "comment": "Button in the call window when a second call comes in: ends the current call and answers the new one.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End & Accept"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beenden und annehmen"
+          }
+        }
+      }
+    },
+    "Call waiting": {
+      "comment": "Status of a second incoming call in the call window (call waiting).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call waiting"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anklopfen"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

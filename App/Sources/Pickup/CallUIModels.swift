@@ -53,6 +53,10 @@ struct ActiveCallInfo: Equatable, Sendable {
     var endDuration: String? = nil
     /// A second caller waiting on the line.
     var waiting: CallParty? = nil
+    /// A second call on hold while this one is active.
+    var held: CallParty? = nil
+    /// The phone supports holding, swapping and taking a waiting call.
+    var canHold = false
     var notice: String? = nil
     /// The user pressed End Call and the phone has not confirmed yet: the button shows progress.
     var isEnding = false
@@ -67,6 +71,14 @@ struct CallActions {
     var toggleMute: () -> Void = {}
     var sendDigit: (Character) -> Void = { _ in }
     var moveToPhone: () -> Void = {}
+    var toggleHold: () -> Void = {}
+    var swapCalls: () -> Void = {}
+    /// Take the waiting call and hold the current one.
+    var acceptWaitingHolding: () -> Void = {}
+    /// Take the waiting call and end the current one.
+    var acceptWaitingEnding: () -> Void = {}
+    var rejectWaiting: () -> Void = {}
+    var endHeld: () -> Void = {}
 }
 
 enum ConnectionStatus: Equatable {

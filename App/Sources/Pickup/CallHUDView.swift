@@ -39,12 +39,25 @@ struct CallHUDView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if showsHoldControl {
+                CircleControl(symbol: info.phase == .held ? "play.fill" : "pause.fill",
+                              title: info.phase == .held ? "Resume" : "Hold",
+                              style: info.phase == .held ? .toggled : .neutral,
+                              identifier: "hud-hold", action: actions.toggleHold)
+            }
+            if let held = info.held, info.phase == .active {
+                heldCallRow(held)
+            }
             if let waiting = info.waiting {
-                Text("Call waiting: \(waiting.primaryText ?? String(localized: "Unknown caller"))")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                if info.canHold {
+                    waitingCallCard(waiting)
+                } else {
+                    Text("Call waiting: \(waiting.primaryText ?? String(localized: "Unknown caller"))")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if let notice = info.notice {
                 StatusMessage(text: notice)
@@ -98,6 +111,70 @@ struct CallHUDView: View {
         .accessibilityIdentifier("call-hud")
     }
 
+    /// Hold / Resume for a single call (with two calls, the second call's row offers Swap instead).
+    private var showsHoldControl: Bool {
+        info.canHold && info.held == nil && info.waiting == nil && (info.phase == .active || info.phase == .held)
+    }
+
+    /// The call on hold while another one is active: swap to it or end it.
+    private func heldCallRow(_ held: CallParty) -> some View {
+        let name = held.primaryText ?? String(localized: "Unknown caller")
+        return SecondCallRow(party: held, status: String(localized: "On hold")) {
+            Button(action: actions.swapCalls) {
+                Label("Swap", systemImage: "arrow.left.arrow.right")
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel(Text("Swap to \(name)", comment: "VoiceOver label of the button that swaps to the call on hold. %@ is the caller's name or number."))
+            .help(Text("Swap to \(name)"))
+            .accessibilityIdentifier("hud-swap")
+            Button(action: actions.endHeld) {
+                Image(systemName: "phone.down.fill")
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(Color.red, in: Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(PressableStyle())
+            .accessibilityLabel(Text("End call with \(name)", comment: "VoiceOver label of the button that ends the call on hold. %@ is the caller's name or number."))
+            .help(Text("End call with \(name)"))
+            .accessibilityIdentifier("hud-end-held")
+        }
+    }
+
+    /// A second caller: take the call (holding or ending the current one) or decline it.
+    private func waitingCallCard(_ waiting: CallParty) -> some View {
+        let holdAndAccept = Button(action: actions.acceptWaitingHolding) {
+            Text("Hold & Accept", comment: "Button in the call window when a second call comes in: puts the current call on hold and answers the new one.")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.callGreen)
+        .accessibilityIdentifier("hud-waiting-hold-accept")
+        let endAndAccept = Button(action: actions.acceptWaitingEnding) {
+            Text("End & Accept", comment: "Button in the call window when a second call comes in: ends the current call and answers the new one.")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("hud-waiting-end-accept")
+        let decline = Button(action: actions.rejectWaiting) {
+            Text("Decline").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(.red)
+        .accessibilityIdentifier("hud-waiting-decline")
+        return VStack(spacing: 8) {
+            SecondCallRow(party: waiting, status: String(localized: "Call waiting", comment: "Status of a second incoming call in the call window (call waiting).")) {}
+            if info.held == nil { holdAndAccept }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { endAndAccept; decline }
+                VStack(spacing: 8) { endAndAccept; decline }
+            }
+        }
+        .controlSize(.large)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("hud-waiting")
+    }
+
     @ViewBuilder
     private var statusLine: some View {
         switch info.phase {
@@ -148,6 +225,31 @@ struct CallHUDView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// A second call (held or waiting) under the main call: avatar, name, status and its buttons.
+private struct SecondCallRow<Actions: View>: View {
+    let party: CallParty
+    let status: String
+    @ViewBuilder let actions: () -> Actions
+
+    var body: some View {
+        HStack(spacing: 10) {
+            AvatarView(party: party, size: 32)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: party.primaryText ?? String(localized: "Unknown caller"))
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(verbatim: status).font(.caption).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            Spacer(minLength: 4)
+            actions()
+        }
+        .padding(8)
+        .background(.gray.opacity(0.2), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

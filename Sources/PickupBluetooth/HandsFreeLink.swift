@@ -16,6 +16,9 @@ protocol HandsFreeLink: AnyObject {
     /// The phone's baseband (ACL) link is up.
     var isACLConnected: Bool { get }
     var deviceName: String? { get }
+    /// The phone's `+BRSF` feature bitmap and `+CHLD` modes from the SLC set-up (0 until known).
+    var audioGatewayFeatures: UInt32 { get }
+    var callHoldModes: UInt32 { get }
 
     /// Makes `delegate` receive the callbacks and `incoming` the raw AT lines. Every delegate ever
     /// attached is kept alive by the link (`delegate` is `assign` in IOBluetooth).
@@ -61,6 +64,8 @@ final class IOBluetoothHandsFreeLink: HandsFreeLink {
     var isSCOConnected: Bool { device.isSCOConnected() }
     var isACLConnected: Bool { device.device?.isConnected() ?? false }
     var deviceName: String? { device.device?.name }
+    var audioGatewayFeatures: UInt32 { device.deviceSupportedFeatures }
+    var callHoldModes: UInt32 { device.deviceCallHoldModes }
 
     func attach(delegate: HandsFreeDelegate, incoming: @escaping PUBATLogHandler) {
         if !delegates.contains(where: { $0 === delegate }) { delegates.append(delegate) }

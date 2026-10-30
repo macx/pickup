@@ -94,11 +94,23 @@ public protocol HFPTransport: AnyObject {
     /// Reads the newest `count` entries of a call list (`AT+CPBS="DC"`, then `AT+CPBR=1,<count>`).
     /// The answer arrives as `.callHistory`. Requests are queued and answered in order.
     func readCallHistory(_ list: CallHistoryList, count: Int) throws
+    /// True if the phone supports three-way calling (`+BRSF` and `+CHLD` modes 0, 1 and 2).
+    var supportsCallHold: Bool { get }
+    /// Holds, resumes, swaps or ends calls, or answers/rejects a waiting call. `AT+CHLD=<n>`;
+    /// the answer arrives as `.commandCompleted(.callHold, …)`, the effect as indicator changes.
+    func callHold(_ action: CallHoldAction) throws
 }
 
 public extension HFPTransport {
     /// Transports without access to the phone's call lists.
     func readCallHistory(_ list: CallHistoryList, count: Int) throws {
+        throw TransportError.unsupported
+    }
+
+    /// Transports without three-way calling.
+    var supportsCallHold: Bool { false }
+
+    func callHold(_ action: CallHoldAction) throws {
         throw TransportError.unsupported
     }
 }

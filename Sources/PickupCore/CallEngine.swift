@@ -42,6 +42,9 @@ public final class CallEngine {
         public var callHistoryRefreshDelay: TimeInterval = 2
         /// `refreshCallHistory()` does nothing if the lists were requested less than this ago.
         public var callHistoryMinimumInterval: TimeInterval = 15
+        /// A waiting call that stopped ringing counts as taken on the phone (with the current call on
+        /// hold) if the phone reports an active and a held call within this time.
+        public var waitingCallTakenWindow: TimeInterval = 5
 
         public init() {}
     }
@@ -57,8 +60,11 @@ public final class CallEngine {
     public private(set) var deviceName: String?
     /// The current call, or the call that just ended (phase `.ended`) until it is cleared.
     public private(set) var call: CallInfo?
-    /// A second incoming call while `call` is active (call waiting). Shown only; not controllable yet.
+    /// A second incoming call while `call` is active (call waiting).
     public private(set) var waitingCall: CallInfo?
+    /// A second call on hold while `call` is active (after taking a waiting call, or swapping).
+    /// Whenever it is set, `call` is the active one.
+    public private(set) var heldCall: CallInfo?
     public private(set) var indicators = HFPIndicators()
     public private(set) var audioRoute: AudioRoute = .phone
     /// Most recent time the engine moved the audio back to the phone, for a short notice.
@@ -74,6 +80,8 @@ public final class CallEngine {
     public var supportsAudio: Bool { transport.supportsAudio }
     /// Audio on the Mac is possible for this call: transport capability and user setting.
     public var isAudioOnMacEnabled: Bool { supportsAudio && takeCallsOnMac }
+    /// The phone supports holding, swapping and taking a waiting call.
+    public var supportsCallHold: Bool { transport.supportsCallHold }
     public var phoneStatus: PhoneStatus {
         PhoneStatus(
             hasService: indicators.service, signal: indicators.signal,
@@ -105,6 +113,14 @@ public final class CallEngine {
     @ObservationIgnored private var cancelRequestedFor: UUID?
     @ObservationIgnored private var cancelResentFor: UUID?
     @ObservationIgnored private var isInvalidated = false
+
+    /// The three-way calling command sent and not answered yet; its effect is applied when the phone
+    /// confirms it (or earlier, when the matching indicator arrives first).
+    private enum HoldRequest { case toggle, swap, acceptWaitingHolding, acceptWaitingEnding, rejectWaiting, endActive, endHeld }
+    @ObservationIgnored private var holdRequest: HoldRequest?
+    /// The waiting call that stopped ringing without a request from this Mac (taken, declined or
+    /// missed on the phone), to recognise it when the phone reports it as active.
+    @ObservationIgnored private var resolvedWaiting: (call: CallInfo, at: Date)?
 
     @ObservationIgnored private var setupEndTask: ScheduledTask?
     @ObservationIgnored private var endedClearTask: ScheduledTask?
@@ -206,6 +222,18 @@ public final class CallEngine {
         guard [.dialing, .active, .held].contains(phase), let call else {
             throw CallEngineError.invalidPhase(phase)
         }
+        if heldCall != nil, phase == .active, transport.supportsCallHold {
+            // End the active call and go back to the held one, as on the phone. Without three-way
+            // calling (a second call the phone set up on its own), AT+CHUP below still ends the call.
+            localEndRequestedFor = call.id
+            do {
+                try sendHold(.releaseActiveAcceptOther, .endActive)
+            } catch {
+                localEndRequestedFor = nil
+                throw error
+            }
+            return
+        }
         log.log(.command, "hang up -> endCall()")
         localEndRequestedFor = call.id
         if phase == .dialing {
@@ -258,6 +286,60 @@ public final class CallEngine {
         // The digit is not logged: DTMF often carries PINs.
         log.log(.command, "dtmf -> sendDTMF()")
         try perform { try transport.sendDTMF(digit) }
+    }
+
+    // MARK: Three-way calling
+
+    /// Puts the call on hold, or resumes it. Only with a single call.
+    public func toggleHold() throws {
+        try requireCallHold()
+        guard heldCall == nil, waitingCall == nil, phase == .active || phase == .held else {
+            throw CallEngineError.invalidPhase(phase)
+        }
+        try sendHold(.holdActiveAcceptOther, .toggle)
+    }
+
+    /// Swaps the active and the held call.
+    public func swapCalls() throws {
+        try requireCallHold()
+        guard heldCall != nil, phase == .active else { throw CallEngineError.invalidPhase(phase) }
+        try sendHold(.holdActiveAcceptOther, .swap)
+    }
+
+    /// Takes the waiting call. `endingCurrent`: ends the current call instead of holding it. With a
+    /// call already on hold, only ending the current call is possible.
+    public func acceptWaitingCall(endingCurrent: Bool) throws {
+        try requireCallHold()
+        guard waitingCall != nil, phase == .active || phase == .held else { throw CallEngineError.invalidPhase(phase) }
+        guard endingCurrent || heldCall == nil else { throw CallEngineError.unsupported }
+        if endingCurrent, let call { localEndRequestedFor = call.id }
+        try sendHold(endingCurrent ? .releaseActiveAcceptOther : .holdActiveAcceptOther,
+                     endingCurrent ? .acceptWaitingEnding : .acceptWaitingHolding)
+    }
+
+    /// Rejects the waiting call; the current call goes on.
+    public func rejectWaitingCall() throws {
+        try requireCallHold()
+        guard waitingCall != nil else { throw CallEngineError.invalidPhase(phase) }
+        try sendHold(.releaseHeldOrRejectWaiting, .rejectWaiting)
+    }
+
+    /// Ends the held call; the active call goes on.
+    public func endHeldCall() throws {
+        try requireCallHold()
+        guard heldCall != nil, waitingCall == nil else { throw CallEngineError.invalidPhase(phase) }
+        try sendHold(.releaseHeldOrRejectWaiting, .endHeld)
+    }
+
+    private func requireCallHold() throws {
+        try requireConnected()
+        guard transport.supportsCallHold else { throw CallEngineError.unsupported }
+    }
+
+    private func sendHold(_ action: CallHoldAction, _ request: HoldRequest) throws {
+        log.log(.command, "call hold \(action.rawValue) (\(request)) -> callHold()")
+        try perform { try transport.callHold(action) }
+        holdRequest = request
     }
 
     /// "Move to phone": hands the call audio back to the phone.
@@ -365,6 +447,12 @@ public final class CallEngine {
         historyRefreshTask?.cancel()
         historyRefreshTask = nil
         waitingCall = nil
+        holdRequest = nil
+        resolvedWaiting = nil
+        if let held = heldCall {
+            heldCall = nil
+            recordBackground(held, .connectionLost)
+        }
         audioRoute = .phone
         // A hand-back deferred by the transport is dropped when the link goes down.
         expectingAudioClose = false
@@ -420,9 +508,20 @@ public final class CallEngine {
             }
 
         case .none:
-            if waitingCall != nil, phase == .active || phase == .held {
-                log.log(.state, "waiting call gone")
-                waitingCall = nil
+            if let waiting = waitingCall, phase == .active || phase == .held {
+                switch holdRequest {
+                case .acceptWaitingHolding:
+                    promoteWaiting(holdingCurrent: true)
+                case .acceptWaitingEnding:
+                    promoteWaiting(holdingCurrent: false)
+                case .rejectWaiting:
+                    waitingCall = nil
+                    recordBackground(waiting, .declined)
+                default:
+                    log.log(.state, "waiting call gone")
+                    waitingCall = nil
+                    resolvedWaiting = (waiting, scheduler.now)
+                }
                 // If the waiting call was taken (calls swapped), the list shows the new active call.
                 requestCallList(resetAttempts: true)
             } else if phase == .ringing || phase == .dialing, indicators.call != true, let call {
@@ -472,6 +571,12 @@ public final class CallEngine {
 
     private func callIndicatorCleared() {
         guard let call, call.phase == .active || call.phase == .held else { return }
+        if let held = heldCall {
+            // No call left at all: the held one is over too.
+            heldCall = nil
+            recordBackground(held, localEndRequestedFor == call.id ? .hungUp : .remoteEnded)
+        }
+        holdRequest = nil
         let waiting = waitingCall
         finish(localEndRequestedFor == call.id ? .hungUp : .remoteEnded)
         // HFP: when the active call ends while another one waits, the waiting call keeps ringing.
@@ -485,13 +590,108 @@ public final class CallEngine {
 
     private func callHeldChanged(_ held: CallHeldState) {
         guard var call, call.phase == .active || call.phase == .held else { return }
+        if heldCall != nil {
+            switch held {
+            case .activeAndHeld:
+                return   // still one active and one held call (also after a swap)
+            case .heldOnly:
+                // The active call ended (other party or on the phone); the held one stays on hold.
+                resumeHeld(after: localEndRequestedFor == call.id ? .hungUp : .remoteEnded, phase: .held)
+            case .none:
+                if holdRequest == .endActive {
+                    resumeHeld(after: .hungUp, phase: .active)
+                } else if let other = heldCall {
+                    // The held call ended (on this Mac, by the other party or on the phone).
+                    heldCall = nil
+                    recordBackground(other, holdRequest == .endHeld ? .hungUp : .remoteEnded)
+                    if holdRequest == .endHeld { holdRequest = nil }
+                }
+            }
+            return
+        }
         switch held {
         case .heldOnly:
             transition(&call, to: .held)
-        case .none, .activeAndHeld:
+            self.call = call
+        case .none:
             transition(&call, to: .active)
+            self.call = call
+        case .activeAndHeld:
+            if waitingCall != nil || recentlyResolvedWaiting != nil {
+                // The waiting call was taken (on this Mac or on the phone) and the current call held.
+                promoteWaiting(holdingCurrent: true)
+            } else {
+                // A second call we did not see coming (e.g. dialed on the phone): the old one is held.
+                log.log(.state, "second call appeared; the current call is on hold")
+                transition(&call, to: .held)
+                heldCall = call
+                var second = CallInfo(direction: .unknown, callerID: .unknown, phase: .active, startedAt: scheduler.now)
+                second.connectedAt = scheduler.now
+                self.call = second
+            }
+            requestCallList(resetAttempts: true)
         }
-        self.call = call
+    }
+
+    private var recentlyResolvedWaiting: CallInfo? {
+        guard let resolvedWaiting,
+              scheduler.now.timeIntervalSince(resolvedWaiting.at) <= configuration.waitingCallTakenWindow else { return nil }
+        return resolvedWaiting.call
+    }
+
+    /// The waiting call becomes the active call; the current one is held or ended.
+    private func promoteWaiting(holdingCurrent: Bool) {
+        guard let waiting = waitingCall ?? recentlyResolvedWaiting, var current = call,
+              current.phase == .active || current.phase == .held else { return }
+        waitingCall = nil
+        resolvedWaiting = nil
+        var next = waiting
+        next.phase = .active
+        next.connectedAt = scheduler.now
+        if holdingCurrent {
+            transition(&current, to: .held)
+            heldCall = current
+        } else {
+            finish(localEndRequestedFor == current.id ? .hungUp : .remoteEnded)
+            endedClearTask?.cancel()
+            endedClearTask = nil
+        }
+        log.log(.state, "call \(next.id.uuidString.prefix(8)) waiting -> active\(holdingCurrent ? "; previous call held" : "")")
+        self.call = next
+        if next.callerID == .unknown { requestCallList(resetAttempts: true) }
+    }
+
+    /// The active call ended; the held call takes its place (`phase`: held, or active when the phone
+    /// resumed it).
+    private func resumeHeld(after reason: CallEndReason, phase: CallPhase) {
+        guard let held = heldCall else { return }
+        heldCall = nil
+        holdRequest = nil
+        finish(reason)
+        endedClearTask?.cancel()
+        endedClearTask = nil
+        var resumed = held
+        transition(&resumed, to: phase)
+        self.call = resumed
+    }
+
+    private func swapActiveAndHeld() {
+        guard var active = call, var held = heldCall, active.phase == .active else { return }
+        transition(&active, to: .held)
+        transition(&held, to: .active)
+        heldCall = active
+        self.call = held
+    }
+
+    /// A call that ended while it was not the shown call (held or waiting): into the recent calls.
+    private func recordBackground(_ background: CallInfo, _ reason: CallEndReason) {
+        var ended = background
+        ended.phase = .ended
+        ended.endedAt = scheduler.now
+        ended.endReason = reason
+        log.log(.state, "call \(ended.id.uuidString.prefix(8)) ended in the background: \(reason.rawValue)")
+        callHistory.record(ended)
+        onCallFinished?(ended)
     }
 
     private func callerIDReceived(_ callerID: CallerID) {
@@ -521,6 +721,12 @@ public final class CallEngine {
             waitingCall = waiting
         }
 
+        if var held = heldCall, let entry = calls.first(where: { $0.status == .held || $0.status == .heldByResponseAndHold }) {
+            held.callerID = merged(held.callerID, with: CallerID(listedNumber: entry.number))
+            if held.direction == .unknown { held.direction = entry.direction }
+            heldCall = held
+        }
+
         guard var call, call.phase.isLive else { return }
         if let entry = Self.entry(in: calls, matching: call) {
             let listed = CallerID(listedNumber: entry.number)
@@ -547,6 +753,10 @@ public final class CallEngine {
     }
 
     private func commandCompleted(_ command: HFPCommand, _ result: CommandResult) {
+        if command == .callHold {
+            holdCompleted(result)
+            return
+        }
         guard !result.isSuccess else { return }
         switch command {
         case .dial:
@@ -566,9 +776,49 @@ public final class CallEngine {
             }
         case .selectPhonebook, .readPhonebook:
             break // Reported as `.callHistory` by the transport.
+        case .callHold:
+            break // Handled above.
         case .other:
             break // Commands IOBluetooth sends on its own (SMS probing etc.) fail routinely.
         }
+    }
+
+    /// The phone answered a three-way calling command. Success applies the request (unless an
+    /// indicator already did); the call list then confirms numbers and states.
+    private func holdCompleted(_ result: CommandResult) {
+        guard let request = holdRequest else { return }
+        holdRequest = nil
+        guard result.isSuccess else {
+            lastCommandFailure = CommandFailure(command: .callHold, result: result, date: scheduler.now)
+            if request == .endActive || request == .acceptWaitingEnding { localEndRequestedFor = nil }
+            log.log(.warning, "phone rejected the call hold command (\(request)): \(result)")
+            return
+        }
+        switch request {
+        case .toggle:
+            break // The callheld indicator moves the call between active and held.
+        case .swap:
+            swapActiveAndHeld()
+        case .acceptWaitingHolding:
+            promoteWaiting(holdingCurrent: true)
+        case .acceptWaitingEnding:
+            promoteWaiting(holdingCurrent: false)
+        case .rejectWaiting:
+            if let waiting = waitingCall {
+                waitingCall = nil
+                recordBackground(waiting, .declined)
+            }
+        case .endActive:
+            if let call, heldCall != nil {
+                resumeHeld(after: localEndRequestedFor == call.id ? .hungUp : .remoteEnded, phase: .active)
+            }
+        case .endHeld:
+            if let held = heldCall {
+                heldCall = nil
+                recordBackground(held, .hungUp)
+            }
+        }
+        if phase.isLive { requestCallList(resetAttempts: true) }
     }
 
     private func audioConnectionChanged(isOpen: Bool) {

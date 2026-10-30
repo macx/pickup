@@ -294,7 +294,9 @@ final class AppModel {
         ActiveCallInfo(
             party: party, phase: phase, startedAt: call.connectedAt, phoneName: phoneName,
             audioOnMac: engine.isAudioOnMacEnabled && engine.audioRoute == .mac, isMuted: false,
-            waiting: engine.waitingCall.map { self.party(for: $0.callerID) }, notice: notice)
+            waiting: engine.waitingCall.map { self.party(for: $0.callerID) },
+            held: engine.heldCall.map { self.party(for: $0.callerID) },
+            canHold: engine.supportsCallHold, notice: notice)
     }
 
     private func party(for callerID: CallerID) -> CallParty {
@@ -366,7 +368,13 @@ final class AppModel {
                 guard let digit = DTMFDigit(digit) else { return }
                 self?.run { try $0.sendDTMF(digit) }
             },
-            moveToPhone: { [weak self] in self?.run { try $0.transferAudioToPhone() } })
+            moveToPhone: { [weak self] in self?.run { try $0.transferAudioToPhone() } },
+            toggleHold: { [weak self] in self?.run { try $0.toggleHold() } },
+            swapCalls: { [weak self] in self?.run { try $0.swapCalls() } },
+            acceptWaitingHolding: { [weak self] in self?.run { try $0.acceptWaitingCall(endingCurrent: false) } },
+            acceptWaitingEnding: { [weak self] in self?.run { try $0.acceptWaitingCall(endingCurrent: true) } },
+            rejectWaiting: { [weak self] in self?.run { try $0.rejectWaitingCall() } },
+            endHeld: { [weak self] in self?.run { try $0.endHeldCall() } })
     }
 
     /// End Call in the HUD: the button shows progress until the phone confirms (usually 1–2 s). If the

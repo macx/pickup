@@ -144,6 +144,7 @@ public enum HFPCommand: Equatable, Sendable {
     case currentCalls     // AT+CLCC
     case selectPhonebook  // AT+CPBS="<memory>"
     case readPhonebook    // AT+CPBR=<first>,<last>
+    case callHold         // AT+CHLD=<n> (not the AT+CHLD=? query of the SLC set-up)
     case other(String)    // e.g. "AT+BRSF", "AT+CIND?"
 
     public init(atCommand line: String) {
@@ -162,6 +163,8 @@ public enum HFPCommand: Equatable, Sendable {
             self = .selectPhonebook
         } else if command.hasPrefix("AT+CPBR="), command != "AT+CPBR=?" {
             self = .readPhonebook
+        } else if command.hasPrefix("AT+CHLD="), command != "AT+CHLD=?" {
+            self = .callHold
         } else {
             self = .other(HFPCommand.name(of: command))
         }
@@ -193,6 +196,17 @@ public enum HFPCommand: Equatable, Sendable {
         if isSetCommand && name != "+BRSF" && name != "+CPBR" { return nil }
         return String(name)
     }
+}
+
+/// Three-way calling commands (`AT+CHLD=<n>`, HFP 1.8 section 4.22). The phone applies them to its
+/// calls: with one call, `2` holds or resumes it; with a held and an active call, `2` swaps them.
+public enum CallHoldAction: Int, Equatable, Sendable {
+    /// `0`: releases the held call, or rejects the waiting call.
+    case releaseHeldOrRejectWaiting = 0
+    /// `1`: ends the active call and takes the held or waiting call.
+    case releaseActiveAcceptOther = 1
+    /// `2`: puts the active call on hold and takes the held or waiting call.
+    case holdActiveAcceptOther = 2
 }
 
 /// Final result of an AT command.
