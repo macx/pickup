@@ -258,6 +258,7 @@ struct DialerView: View {
         selectFirstRecentRow = wasInList
         recentListRaw = target.rawValue
         let newRows = DialerRows.recentRows(model.callHistory.entries(target), list: target)
+
         let detail = wasInList ? newRows.first.map(selectionText) : nil
         let tabName = target.localizedTabName
         announce(newRows.isEmpty
@@ -1083,6 +1084,9 @@ private struct RecentCallsTabs: View {
                 Text("Recent Calls", comment: "VoiceOver label of the tabs above the recent calls in the popover.")
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
+            // As wide as the visible tabs: VoiceOver's cursor and hit area match what is on screen.
+            .frame(maxWidth: .infinity)
         }
     }
 }

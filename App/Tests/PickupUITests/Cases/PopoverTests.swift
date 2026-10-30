@@ -66,9 +66,12 @@ final class PopoverTests: PickupUITestCase {
         XCTAssertFalse(element("recent-row-DC-0").isSelected, "the first Tab stops at the tabs")
         keyboard.press(Key.tab)
         XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-0").isSelected }, "the second Tab enters the list")
+        // Tabs: Outgoing (DC) → Incoming (RC) → Missed (MC).
         keyboard.press(Key.right)
-        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-MC-0") && self.element("recent-row-MC-0").isSelected },
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-RC-0") && self.element("recent-row-RC-0").isSelected },
                       "Right switches to the next tab and keeps the keyboard in the list")
+        keyboard.press(Key.right)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-MC-0") && self.element("recent-row-MC-0").isSelected })
         keyboard.press(Key.left)
         XCTAssertTrue(Wait.until(3) { self.exists("recent-row-RC-0") && self.element("recent-row-RC-0").isSelected })
         keyboard.press(Key.left)
