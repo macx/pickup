@@ -13,6 +13,8 @@ private enum DialerDemo {
 /// Top bar (keypad toggle + search capsule), guidance, then keypad or result list.
 struct DialerView: View {
     let model: AppModel
+    /// Width between the popover's side margins (the popover's width is set by the user).
+    let contentWidth: CGFloat
     let openSettings: () -> Void
     let close: () -> Void
 
@@ -111,7 +113,7 @@ struct DialerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             topBar
-                .frame(width: Self.contentWidth)
+                .frame(width: contentWidth)
             if let guidance = model.guidance {
                 GuidanceCard(guidance: guidance, model: model, openSettings: openSettings)
             }
@@ -126,23 +128,26 @@ struct DialerView: View {
                 // cross-fades in place, and loading the calls never resizes the popover.
                 ZStack(alignment: .top) {
                     if showKeypad {
-                        keypad.transition(.opacity)
+                        keypad
+                            .padding(.top, Self.keypadTopInset)
+                            .transition(.opacity)
                     }
                     if queryIsEmpty && !showKeypad {
                         recentCalls.transition(.opacity)
                     }
                 }
-                .frame(width: Self.contentWidth, height: Self.keypadHeight, alignment: .top)
+                .frame(width: contentWidth, height: Self.keypadHeight + Self.keypadTopInset, alignment: .top)
             }
             if !queryIsEmpty {
                 content
-                    .frame(width: Self.contentWidth)
+                    .frame(width: contentWidth)
             }
             if let error {
                 StatusMessage(text: error, kind: .error)
             }
         }
-        .padding([.horizontal, .top], 16)
+        .padding(.horizontal, Self.sideMargin)
+        .padding(.top, 16)
         .padding(.bottom, 12)
         .onAppear {
             focusFieldSoon()
@@ -346,15 +351,17 @@ struct DialerView: View {
     // MARK: Keypad
 
     static let keySize: CGFloat = 60
-    /// Width of everything between the popover's 16 pt side margins. Every block of the dialer gets
-    /// exactly this width: a child with a larger ideal width (the native segmented control in German,
-    /// a legacy scroller) used to widen the popover's content and shift it sideways.
-    static let contentWidth: CGFloat = 300 - 2 * 16
+    /// Margin on both sides. Every block of the dialer gets exactly `contentWidth`: a child with a
+    /// larger ideal width (the native segmented control in German, a legacy scroller) used to widen the
+    /// popover's content and shift it sideways.
+    static let sideMargin: CGFloat = 16
     static let keyColumnSpacing: CGFloat = 16
     static let keyRowSpacing: CGFloat = 12
     /// Height of the keypad (four rows of keys and the call button); the recent calls take the same.
     static let keypadHeight: CGFloat = 5 * keySize + 4 * keyRowSpacing
     static let callButtonSize: CGFloat = 28
+    /// Extra room between the search bar and the first row of keys.
+    static let keypadTopInset: CGFloat = 10
 
     private static let keys: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["*", "0", "#"]]
 
@@ -376,13 +383,11 @@ struct DialerView: View {
                 }
             }
             .frame(width: Self.keySize, height: Self.keySize)
-            .glassEffect(.regular.interactive(), in: Circle())
-            .overlay(Circle().fill(Color.primary.opacity(pressed ? 0.22 : 0)))
-            .scaleEffect(pressed ? 0.93 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.08), value: pressed)
+            // Plain glass: the interactive variant stretches the key into an oval while it is pressed.
+            .glassEffect(.regular, in: Circle())
             .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(KeyPressStyle(highlighted: pressed, reduceMotion: reduceMotion))
         .accessibilityLabel(Text(verbatim: key))
         .accessibilityIdentifier(Self.identifier(forKey: key))
         .modifier(PlusLongPress(enabled: plus != nil) {
@@ -418,10 +423,10 @@ struct DialerView: View {
                         .font(.system(size: 24))
                         .foregroundStyle(.white)
                         .frame(width: Self.keySize, height: Self.keySize)
-                        .glassEffect(.regular.tint(.callGreen).interactive(), in: Circle())
+                        .glassEffect(.regular.tint(.callGreen), in: Circle())
                         .contentShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(KeyPressStyle(reduceMotion: reduceMotion))
                 .disabled(!keypadCallEnabled)
                 .opacity(keypadCallEnabled ? 1 : 0.45)
                 .accessibilityLabel(keypadCallsRedial ? Text("Redial", comment: "Label of the keypad's call button while the field is empty: it puts the last dialed number in.") : Text("Call"))
@@ -482,7 +487,7 @@ struct DialerView: View {
             // Fixed width: with a mouse attached, macOS shows a legacy scroller that widened the list
             // by its width, pushed the popover's content 5 pt to the left and made it jump when the
             // keypad (no scroller) replaced the list.
-            .frame(width: Self.contentWidth)
+            .frame(width: contentWidth)
             .frame(maxHeight: fill ? .infinity : (showKeypad ? 3 : 6) * 50, alignment: .top)
             .scrollEdgeEffectStyle(.soft, for: .bottom)   // rows fade out at the bottom instead of being cut
             // One focus stop for the whole list: ↑/↓ select, Return calls, ⌘C copies. The selected row's
@@ -881,6 +886,21 @@ private struct PlusLongPress: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// A round key: darkens and shrinks evenly (stays a circle) while the mouse is down or the matching
+/// physical key is held.
+private struct KeyPressStyle: ButtonStyle {
+    var highlighted = false
+    let reduceMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = highlighted || configuration.isPressed
+        configuration.label
+            .overlay(Circle().fill(Color.primary.opacity(pressed ? 0.22 : 0)).allowsHitTesting(false))
+            .scaleEffect(pressed ? 0.93 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.08), value: pressed)
     }
 }
 

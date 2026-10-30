@@ -38,6 +38,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if UserDefaults.standard.bool(forKey: "PickupOpenPopover") { popover.behavior = .applicationDefined }
         popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         popover.delegate = self
+        // While an edge is dragged the popover follows the pointer without its resize animation.
+        NotificationCenter.default.addObserver(forName: .pickupPopoverResizing, object: nil, queue: .main) { [weak self] note in
+            let resizing = note.object as? Bool ?? false
+            MainActor.assumeIsolated {
+                self?.popover.animates = !resizing && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            }
+        }
         trackIcon()
         installShortcutMonitor()
         // Global shortcut (Settings): toggles the popover from anywhere.
@@ -240,11 +247,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                            comment: "One-line description in the About panel."),
             attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
                          .foregroundColor: NSColor.secondaryLabelColor])
-        if let string = AppInfo.repositoryURL, let url = URL(string: string) {
+        // Links open in the default browser; Pickup itself never goes online.
+        let links: [(String?, String?)] = [
+            (AppInfo.repositoryURL, String(localized: "Source code on GitHub", comment: "Link text in the About panel.")),
+            (AppInfo.websiteURL, nil),   // shown as its domain
+        ]
+        for case let (string?, text) in links {
+            guard let url = URL(string: string), let title = text ?? url.host() else { continue }
             credits.append(NSAttributedString(string: "\n"))
             credits.append(NSAttributedString(
-                string: String(localized: "Source code on GitHub", comment: "Link text in the About panel."),
-                attributes: [.link: url, .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]))
+                string: title, attributes: [.link: url, .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]))
         }
         options[.credits] = credits
         NSApp.orderFrontStandardAboutPanel(options: options)
@@ -256,6 +268,8 @@ extension Notification.Name {
     static let pickupPopoverDidShow = Notification.Name("PickupPopoverDidShow")
     /// Posted right before the popover opens; the dialer resets and focuses its search field.
     static let pickupPopoverWillShow = Notification.Name("PickupPopoverWillShow")
+    /// Posted when the user starts (`true`) and stops (`false`) dragging the popover's width.
+    static let pickupPopoverResizing = Notification.Name("PickupPopoverResizing")
 }
 
 /// Settings window that opens without a focused control. With keyboard navigation turned on, AppKit

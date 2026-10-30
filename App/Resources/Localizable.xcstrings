@@ -2790,6 +2790,24 @@
           }
         }
       }
+    },
+    "Window width": {
+      "comment": "VoiceOver label of the invisible handle at the side of the popover that changes its width.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Window width"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fensterbreite"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
