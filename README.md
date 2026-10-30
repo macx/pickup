@@ -10,10 +10,7 @@
 Your phone rings, your Mac shows who is calling. Accept, decline, dial. Nothing else in the way.</p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
-    <img src="docs/images/hero.png" alt="An incoming call from Jane Doe as a banner on the Mac, next to the Pickup menu bar popover with keypad and contact search" width="900">
-  </picture>
+  <img src="docs/images/hero-dark.png" alt="The Pickup menu bar popover with the phone's recent calls, an incoming call from Jane Doe as a banner, and the call window with a second caller waiting" width="900">
 </p>
 
 ## Why Pickup
@@ -25,19 +22,26 @@ Your phone rings, your Mac shows who is calling. Accept, decline, dial. Nothing 
 ## Features
 
 - **Incoming call banner** with caller name (from your Contacts), number and photo, with **Accept** and **Decline**.
-- **Call window** with the running time and **End Call**, plus a note when a second call is waiting.
+- **Call window** with the running time and **End Call**. **Hold**, **Swap** between two calls, and when a second call comes in: **Hold & Accept**, **End & Accept** or **Decline** (with phones that support three-way calling).
+- **Recent calls** from your phone (Outgoing, Incoming, Missed), with a call button on every row, redial, **Add to Contacts** for unknown numbers and full keyboard control. Nothing is stored on your Mac.
 - **Dial from the menu bar:** a Phone-style popover with a collapsible keypad and **search by name**. Arrow keys and Return, or just type digits and the keypad opens by itself.
 - **Phone number links:** click a `tel:` or `callto:` link anywhere and Pickup places the call on your phone (always after a confirmation).
-- **Missed call notifications**, a **global shortcut** to open the popover from anywhere, **launch at login**.
+- **Missed calls** as a red dot on the menu bar icon and as a notification with **Call Back**, the phone's **battery level** in the popover or the menu bar, a **global shortcut** to open the popover from anywhere, **launch at login**.
 - **Reconnects by itself** when your phone goes out of range, and after the Mac wakes from sleep.
+- A **resizable** popover and a **welcome window** that explains the permissions Pickup needs.
 - Native **Liquid Glass** design for macOS 26, light and dark, English and German, keyboard and VoiceOver friendly.
 
 <table>
   <tr>
-    <td><img src="docs/images/call-hud-dark.png" alt="Call window with running time and End Call button" width="420"></td>
-    <td><img src="docs/images/settings-dark.png" alt="Pickup settings: phone, global shortcut, phone links, contacts, notifications, launch at login" width="420"></td>
+    <td colspan="2"><img src="docs/images/popover-search-dark.png" alt="The popover with the recent calls, and with the keypad open while searching for a contact" width="860"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/call-waiting-dark.png" alt="Call window with a second caller waiting (Hold &amp; Accept, End &amp; Accept, Decline) and with a call on hold (Swap)" width="420"></td>
+    <td><img src="docs/images/settings-dark.png" alt="Pickup settings: phone, phone battery, global shortcut, phone links, contacts, notifications, launch at login" width="420"></td>
   </tr>
 </table>
+
+What changed in each version: [HISTORY.md](HISTORY.md).
 
 ## Requirements
 
