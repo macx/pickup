@@ -55,6 +55,8 @@ public struct CallHistory: Equatable, Sendable {
     public private(set) var phoneRefused = false
     /// Lists requested from the phone and not answered yet.
     public private(set) var pending: Set<CallHistoryList> = []
+    /// The last read got no answer in time (not a refusal); cleared by the next list that arrives.
+    public private(set) var lastReadUnanswered = false
 
     /// Upper bound for the session lists.
     public static let sessionLimit = 50
@@ -91,9 +93,16 @@ public struct CallHistory: Equatable, Sendable {
         if let entries {
             phoneLists[list] = entries
             phoneRefused = false
+            lastReadUnanswered = false
         } else {
             phoneRefused = true
         }
+    }
+
+    /// The phone did not answer in time: nothing changes but the pending state.
+    mutating func unanswered(_ list: CallHistoryList) {
+        pending.remove(list)
+        lastReadUnanswered = true
     }
 
     /// The link went down: answers still outstanding will never arrive.

@@ -183,4 +183,19 @@ final class CallHistoryTests: XCTestCase {
             XCTAssertFalse(text.contains("Jane"), text)
         }
     }
+
+    // MARK: Unanswered reads
+
+    /// Regression (2026-10-30): a read the phone never answered left the dialer loading forever.
+    func testUnansweredReadEndsLoadingWithoutCountingAsRefused() {
+        transport.bringUp()
+        scheduler.advance(by: 2)
+        XCTAssertTrue(engine.callHistory.isLoading)
+        for list in CallHistoryList.allCases { transport.emit(.callHistoryUnanswered(list)) }
+        XCTAssertFalse(engine.callHistory.isLoading)
+        XCTAssertFalse(engine.callHistory.phoneRefused, "no answer is not a refusal: no hint about the phone's permission")
+        XCTAssertTrue(engine.callHistory.lastReadUnanswered)
+        transport.emit(.callHistory(.dialed, []))
+        XCTAssertFalse(engine.callHistory.lastReadUnanswered, "a later answer clears it")
+    }
 }

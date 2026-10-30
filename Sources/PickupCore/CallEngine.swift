@@ -417,6 +417,8 @@ public final class CallEngine {
             commandCompleted(command, result)
         case .callHistory(let list, let entries):
             callHistory.received(list, entries: entries)
+        case .callHistoryUnanswered(let list):
+            callHistory.unanswered(list)
         case .audioConnectionChanged(let isOpen):
             audioConnectionChanged(isOpen: isOpen)
         }

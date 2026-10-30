@@ -633,6 +633,29 @@ final class AppleHFPTransportTests: XCTestCase {
         XCTAssertFalse(AppleHFPTransport.supportsCallHold(features: 0x1, holdModes: 0b0011), "mode 2 missing")
     }
 
+    /// Regression (2026-10-30): `AT+CPBS` was never written after a failed write of IOBluetooth's own
+    /// command, and the read waited for an answer forever (endless spinner in the dialer).
+    func testUnansweredCallListReadIsGivenUp() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        clock.advance(by: 10)
+        try transport.readCallHistory(.dialed, count: 2)
+        try transport.readCallHistory(.missed, count: 2)
+        XCTAssertEqual(link.calls.last, #"AT+CPBS="DC""#)
+        clock.advance(by: 7)
+        XCTAssertFalse(events.contains(.callHistoryUnanswered(.dialed)))
+        clock.advance(by: 1)
+        XCTAssertEqual(events.filter { if case .callHistoryUnanswered = $0 { true } else { false } },
+                       [.callHistoryUnanswered(.dialed), .callHistoryUnanswered(.missed)])
+
+        // A late answer to the given-up command is ignored; the next read starts cleanly.
+        transport.sentLine(#"AT+CPBS="DC""#, detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        XCTAssertFalse(link.calls.contains("AT+CPBR=1,2"))
+        try transport.readCallHistory(.received, count: 2)
+        XCTAssertEqual(link.calls.last, #"AT+CPBS="RC""#)
+    }
+
     func testCallHistoryIsSelectedThenReadOneListAtATime() async throws {
         let transport = makeTransport()
         let link = connected(transport)
@@ -681,6 +704,24 @@ final class AppleHFPTransportTests: XCTestCase {
         transport.receivedLine("OK", detail: nil)
         clock.advance(by: 0.5)
         XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+CPB") }, [#"AT+CPBS="DC""#])
+    }
+
+    /// The read starts as soon as IOBluetooth's follow-up commands went out and were answered, instead
+    /// of always waiting the full quiet period.
+    func testCallHistoryStartsOnceIOBluetoothsFollowUpsAreAnswered() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        try transport.readCallHistory(.dialed, count: 5)
+        transport.sentLine("AT+VGS=7", detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        clock.advance(by: 0.5)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "AT+VGM is still due")
+        transport.sentLine("AT+VGM=7", detail: nil, channel: link.channel)
+        clock.advance(by: 0.5)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "AT+VGM waits for its reply")
+        transport.receivedLine("OK", detail: nil)
+        clock.advance(by: 0.5)
+        XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+CPB") }, [#"AT+CPBS="DC""#], "about 1.5 s after the link came up, not 10 s")
     }
 
     func testCallHistoryNeedsTheWriteHookAndALink() throws {

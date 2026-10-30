@@ -64,6 +64,13 @@ extension Color {
     /// Outline of the selected row: the state is visible without relying on the faint fill.
     static let selectionRing = adaptive(light: 0x0064E1, dark: 0x4DA3FF)
     static let selectionFill = adaptive(light: 0x0064E1, dark: 0x4DA3FF, alpha: 0.15)
+    /// Placeholder shapes of the skeleton rows and the light sweeping over them.
+    static let skeleton = Color.primary.opacity(0.08)
+    /// White, stronger in light mode (on the light gray shapes) than in dark mode, like PrimeNG.
+    static let skeletonHighlight = Color(nsColor: NSColor(name: nil) { appearance in
+        let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        return NSColor.white.withAlphaComponent(dark ? 0.10 : 0.5)
+    })
     /// Active recent calls tab: the system's selection color, derived from the user's accent color
     /// (darker than the accent itself, so the white label reaches 4.5:1), with its label color.
     static let activeSegment = Color(nsColor: .selectedContentBackgroundColor)

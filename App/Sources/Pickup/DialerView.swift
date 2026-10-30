@@ -38,6 +38,9 @@ struct DialerView: View {
     @AppStorage("recentCallsList") private var recentListRaw = CallHistoryList.dialed.rawValue
     /// The tab was changed from the keyboard while a row was selected: select the new tab's first row.
     @State private var selectFirstRecentRow = false
+    /// The skeleton rows were shown for `skeletonLimit`: a message replaces them until the list arrives.
+    @State private var skeletonExpired = false
+    private static let skeletonLimit: Duration = .seconds(10)
     /// Keyboard focus. Tab runs field → tabs → list in the system order (also without Full Keyboard
     /// Access); the tabs and the list are one focus stop each.
     private enum Focus: Hashable { case field, tabs, list }
@@ -571,20 +574,35 @@ struct DialerView: View {
                 .accessibilityIdentifier("recent-tabs")
                 .accessibilityHint(Text("Use the left and right arrow keys or Command-1 to 3 to switch tabs.", comment: "VoiceOver hint of the recent calls tabs in the popover."))
 
-            if rows.isEmpty {
-                // Rows stay cached while the phone is asked again; the spinner only shows before the first answer.
-                Group {
-                    if history.isLoading {
-                        ProgressView().controlSize(.small)
-                            .accessibilityLabel(Text("Loading recent calls", comment: "VoiceOver label of the progress indicator while the recent calls are read from the phone."))
-                    } else {
-                        Text("No calls", comment: "Empty state of a recent calls tab in the popover.")
-                            .font(.callout).foregroundStyle(Color.rowSubtitle)
-                    }
+            Group {
+                if !rows.isEmpty {
+                    resultList(rows, fill: true)
+                } else if history.isLoading && !skeletonExpired {
+                    // First read after launch: placeholder rows in the shape of the real ones, so the list
+                    // fades in where they were (nothing jumps). Nothing is saved on the Mac between launches.
+                    RecentCallsSkeleton(trailingInset: Self.callButtonSize + 8, callButtonSize: Self.callButtonSize)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .task {
+                            try? await Task.sleep(for: Self.skeletonLimit)
+                            if !Task.isCancelled { skeletonExpired = true }
+                        }
+                } else if history.isLoading || history.lastReadUnanswered {
+                    Text("Recent calls aren’t available right now.", comment: "Shown instead of the recent calls when the phone has not sent them within 10 seconds or did not answer.")
+                        .font(.callout).foregroundStyle(Color.rowSubtitle)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Text("No calls", comment: "Empty state of a recent calls tab in the popover.")
+                        .font(.callout).foregroundStyle(Color.rowSubtitle)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                resultList(rows, fill: true)
+            }
+            .transition(.opacity)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: rows.isEmpty)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: history.isLoading)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: skeletonExpired)
+            .onChange(of: history.isLoading) { _, loading in
+                if !loading { skeletonExpired = false }   // the next read shows the skeleton again
             }
             if history.source(recentList) == .session && !history.isLoading && history.phoneRefused {
                 Text("Calls since Pickup started. To see your phone's call history, allow access to contacts and call history in the phone's Bluetooth settings.",
@@ -903,6 +921,77 @@ private struct ResultRow: View {
         .opacity(enabled ? 1 : 0.5)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// Placeholder rows while the recent calls are read for the first time (like PrimeNG's Skeleton):
+/// avatar, name and detail bars and the call button's circle, with a light sweeping across. Static
+/// with Reduce Motion. VoiceOver hears one "Loading recent calls" element.
+private struct RecentCallsSkeleton: View {
+    let trailingInset: CGFloat
+    let callButtonSize: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Varying bar lengths, so the placeholder reads as a list and not as a pattern.
+    private static let widths: [(title: CGFloat, detail: CGFloat)] = [
+        (0.55, 0.38), (0.42, 0.30), (0.62, 0.44), (0.48, 0.34), (0.58, 0.40), (0.45, 0.32),
+    ]
+
+    var body: some View {
+        rows(Color.skeleton)
+            .overlay {
+                // The band is cut to the shapes drawn opaque: a mask also takes over the opacity, and the
+                // faint shapes themselves let almost none of the band through.
+                if !reduceMotion { ShimmerBand().mask(rows(.black)) }
+            }
+            .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Loading recent calls", comment: "VoiceOver label of the placeholder rows shown while the recent calls are read from the phone."))
+        .accessibilityIdentifier("recent-skeleton")
+    }
+
+    private func rows(_ fill: Color) -> some View {
+        VStack(spacing: 2) {
+            ForEach(Self.widths.indices, id: \.self) { index in
+                row(Self.widths[index], fill: fill)
+            }
+        }
+    }
+
+    private func row(_ widths: (title: CGFloat, detail: CGFloat), fill: Color) -> some View {
+        HStack(spacing: 10) {
+            Circle().fill(fill).frame(width: 32, height: 32)
+            GeometryReader { proxy in
+                VStack(alignment: .leading, spacing: 6) {
+                    Capsule().fill(fill).frame(width: proxy.size.width * widths.title, height: 10)
+                    Capsule().fill(fill).frame(width: proxy.size.width * widths.detail, height: 8)
+                }
+                .frame(maxHeight: .infinity, alignment: .center)
+            }
+            Circle().fill(fill).frame(width: callButtonSize, height: callButtonSize)
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 8 + 2)
+        .frame(height: 48)
+    }
+}
+
+/// A light band sweeping from left to right (PrimeNG's "wave": 1.2 s, endless). Driven by the clock,
+/// not by a started animation: a repeating animation begun while the popover was still opening was
+/// dropped and the band stood still.
+private struct ShimmerBand: View {
+    private static let period: TimeInterval = 1.2
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let progress = context.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: Self.period) / Self.period
+            GeometryReader { proxy in
+                let band = proxy.size.width * 0.5
+                LinearGradient(colors: [.clear, Color.skeletonHighlight, .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: band)
+                    .offset(x: -band + progress * (proxy.size.width + band))
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 

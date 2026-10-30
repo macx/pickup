@@ -27,6 +27,9 @@ public enum TransportEvent: Equatable, Sendable {
     /// A call list read with `readCallHistory`, newest first; nil = the phone refused it (no access
     /// to the call history granted), does not support it or did not answer.
     case callHistory(CallHistoryList, [CallHistoryEntry]?)
+    /// A call list read got no answer in time (the link is not taking commands). Not a refusal: the
+    /// lists already shown stay, and the next refresh asks again.
+    case callHistoryUnanswered(CallHistoryList)
     /// The audio link (SCO) opened or closed. Remote-control transports may still report it,
     /// because the phone can open SCO on its own; the core then hands the audio back.
     case audioConnectionChanged(isOpen: Bool)
