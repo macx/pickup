@@ -25,11 +25,7 @@ mkdir -p "$OUT" "$(dirname "$HELPER")"
 for appearance in ${PICKUP_SHOT_APPEARANCES:-Light Dark}; do
   rm -f "$OUT"/*-"$(echo "$appearance" | tr '[:upper:]' '[:lower:]')"-*.png
 done
-# The popover follows the menu bar's (system) appearance, not the app's launch arguments.
-if [ "$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)" = Dark ]; then
-  echo "capture: note: the Mac is in Dark Mode, so the 'light' popover captures will be dark and are skipped by" \
-       "generate-screenshots (switch to Light Mode yourself for light popover images)." >&2
-fi
+# The popover follows the menu bar's appearance: capture each appearance with the Mac in that mode.
 swiftc -O "$ROOT/scripts/capture-screenshots-helper.swift" -o "$HELPER"
 
 PID=""
@@ -66,11 +62,12 @@ for appearance in ${PICKUP_SHOT_APPEARANCES:-Light Dark}; do
   for lang in en de; do
     echo "== $appearance $lang"
     # Popover: keypad open, search for a name.
-    launch "$appearance" "$lang" -PickupTestScenario idle -PickupOpenPopover YES -PickupDemoQuery ja -PickupDemoKeypad YES
+    launch "$appearance" "$lang" -PickupTestScenario idle -PickupOpenPopover YES \
+      -PickupDemoQuery ja -PickupDemoKeypad YES
     sleep 2.2; shoot "popover-search-$a-$lang"; stop
-    # Popover: collapsed, empty search.
+    # Popover: empty search field, the phone's recent calls (read about 2 s after the link came up).
     launch "$appearance" "$lang" -PickupTestScenario idle -PickupOpenPopover YES
-    sleep 2.2; shoot "popover-empty-$a-$lang"; stop
+    sleep 4; shoot "popover-empty-$a-$lang"; stop
     # Incoming banner (Jane Doe), then the HUD with a running timer, then the ended state.
     launch "$appearance" "$lang" -PickupTestScenario incoming-accept
     sleep 1.8; shoot "banner-$a-$lang"
@@ -82,11 +79,14 @@ for appearance in ${PICKUP_SHOT_APPEARANCES:-Light Dark}; do
     fi
     stop
     [ "$lang" = en ] || continue
-    # Call waiting: Jane is active, John Roe is waiting.
-    launch "$appearance" "$lang" -PickupTestScenario call-waiting -PickupTestFastClock YES
+    # Call waiting: Jane is active, John Roe is waiting (a phone with three-way calling), then John is
+    # taken and Jane is on hold.
+    launch "$appearance" "$lang" -PickupTestScenario call-waiting -PickupTestFastClock YES -PickupTestCallHold YES
     sleep 1.8; "$HELPER" press "$PID" banner-accept
     sleep 3.2; "$HELPER" advance
-    sleep 1.2; shoot "waiting-$a-$lang"; stop
+    sleep 1.2; shoot "waiting-$a-$lang"
+    "$HELPER" press "$PID" hud-waiting-hold-accept
+    sleep 2.5; shoot "held-$a-$lang"; stop
     # Settings.
     launch "$appearance" "$lang" -PickupTestScenario idle -PickupOpenSettings YES
     # Activate Pickup so the window is captured active (coloured traffic lights, accent colours).

@@ -85,13 +85,51 @@ final class ScriptedTransport: HFPTransport {
     /// The phone's call lists (invented): it shares them like a Pixel that was granted access.
     func readCallHistory(_ list: CallHistoryList, count: Int) throws {
         try requireLink()
+        // The first entries are what the UI tests check; the rest fill the list for screenshots. Numbers without a
+        // name match the invented contacts (`ContactsDirectory.loadDemo`) or stay unknown.
         let entries: [CallHistoryEntry] = switch list {
         case .dialed: [CallHistoryEntry(number: Self.jane, name: "Jane Doe"), CallHistoryEntry(number: Self.john, name: "John Roe"),
-                       CallHistoryEntry(number: Self.jane, name: "Jane Doe")]
-        case .received: [CallHistoryEntry(number: Self.john, name: "John Roe")]
-        case .missed: [CallHistoryEntry(number: Self.jane, name: "Jane Doe"), CallHistoryEntry(number: "")]
+                       CallHistoryEntry(number: Self.jane, name: "Jane Doe"), CallHistoryEntry(number: "+491700000111", count: 2),
+                       CallHistoryEntry(number: "+4700000444"), CallHistoryEntry(number: "+49890000555"),
+                       CallHistoryEntry(number: "+49300000222")]
+        case .received: [CallHistoryEntry(number: Self.john, name: "John Roe"), CallHistoryEntry(number: Self.jane, name: "Jane Doe"),
+                         CallHistoryEntry(number: "+49400000333"), CallHistoryEntry(number: "+4700000444")]
+        case .missed: [CallHistoryEntry(number: Self.jane, name: "Jane Doe"), CallHistoryEntry(number: ""),
+                       CallHistoryEntry(number: "+491700000111"), CallHistoryEntry(number: Self.john, name: "John Roe")]
         }
         later { [self] in emit(.callHistory(list, Array(entries.prefix(count)))) }
+    }
+
+    /// Three-way calling, only with `-PickupTestCallHold YES` (screenshots of the waiting-call card).
+    /// Off by default, so the call-waiting UI test keeps covering phones without it.
+    var supportsCallHold: Bool { UserDefaults.standard.bool(forKey: "PickupTestCallHold") }
+
+    /// `AT+CHLD` like a Pixel: OK first, then the indicators.
+    func callHold(_ action: CallHoldAction) throws {
+        try requireLink()
+        guard supportsCallHold else { throw TransportError.unsupported }
+        later { [self] in
+            emit(.commandCompleted(.callHold, .ok))
+            let waiting = callList.contains { $0.status == .waiting }
+            let held = callList.contains { $0.status == .held }
+            switch action {
+            case .holdActiveAcceptOther:
+                callList = callList.map { call in
+                    var call = call
+                    call.status = call.status == .active ? .held : .active
+                    return call
+                }
+                if waiting { emit(.callSetup(.none)) }
+                emit(.callHeld(callList.count > 1 ? .activeAndHeld : (callList.first?.status == .held ? .heldOnly : .none)))
+            case .releaseActiveAcceptOther:
+                callList = callList.filter { $0.status != .active }.map { var call = $0; call.status = .active; return call }
+                if waiting { emit(.callSetup(.none)) }
+                if held { emit(.callHeld(.none)) }
+            case .releaseHeldOrRejectWaiting:
+                callList = callList.filter { $0.status != (waiting ? .waiting : .held) }
+                if waiting { emit(.callSetup(.none)) } else if held { emit(.callHeld(.none)) }
+            }
+        }
     }
 
     // MARK: Phone side (driven by the scenario)
