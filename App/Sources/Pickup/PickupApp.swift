@@ -26,9 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
         let model = AppModel.shared
-        model.start()
+        let welcome = WelcomePolicy.launchReason()
+        // The welcome window asks for the permissions itself; no automatic prompts on top of it.
+        model.start(askForPermissions: welcome == nil)
         let statusItem = StatusItemController(model: model)
         self.statusItem = statusItem
+        if let welcome {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { statusItem.showWelcome(welcome) }
+        }
         retargetSettingsMenuItem()
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { (NSApp.delegate as? AppDelegate)?.retargetSettingsMenuItem() }

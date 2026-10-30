@@ -12,6 +12,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let missedDot = StatusBadgeDot()
     private let popover = NSPopover()
     private var settingsWindow: NSWindow?
+    private var welcomeWindow: NSWindow?
     private var keyMonitor: Any?
     private var shortcutMonitor: Any?
     /// App that was frontmost before the popover activated Pickup; reactivated on close.
@@ -130,7 +131,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// The handset with the percentage to its right, drawn as one template image so the menu bar
     /// tints both for light, dark and selected.
     private static func withPercentage(_ icon: NSImage, _ text: String) -> NSImage {
-        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize - 2, weight: .regular)
         let string = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
         let textSize = string.size()
         let size = NSSize(width: ceil(icon.size.width + percentageGap + textSize.width), height: max(icon.size.height, ceil(textSize.height)))
@@ -292,6 +293,39 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
         settingsWindow?.orderFrontRegardless()
+    }
+
+    /// The welcome window (first launch, or an unsigned update). Marked as shown right away, so it
+    /// does not come back at the next launch even if the user quits instead of clicking Done.
+    func showWelcome(_ reason: WelcomePolicy.Reason) {
+        WelcomePolicy.markShown()
+        keepActiveOnClose = true
+        closePopover()
+        if welcomeWindow == nil {
+            let view = WelcomeView(reason: reason, model: model,
+                                   openSettings: { [weak self] in self?.openSettings() },
+                                   close: { [weak self] in self?.welcomeWindow?.close() })
+            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            window.title = String(localized: "Welcome to Pickup")
+            window.identifier = NSUserInterfaceItemIdentifier("welcome-window")
+            window.styleMask = [.titled, .closable]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden   // the header shows it; VoiceOver still gets the title
+            window.isReleasedWhenClosed = false
+            welcomeWindow = window
+        }
+        // Centred once SwiftUI has sized the content (centring the empty window put it in a corner).
+        if let window = welcomeWindow, let content = window.contentViewController?.view {
+            content.layoutSubtreeIfNeeded()
+            window.setContentSize(content.fittingSize)
+            if let screen = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame {
+                window.setFrameOrigin(NSPoint(x: (screen.midX - window.frame.width / 2).rounded(),
+                                              y: (screen.midY - window.frame.height / 2).rounded()))
+            }
+        }
+        NSApp.activate()
+        welcomeWindow?.makeKeyAndOrderFront(nil)
+        welcomeWindow?.orderFrontRegardless()
     }
 
     func showAbout() {

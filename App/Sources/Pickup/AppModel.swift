@@ -104,7 +104,9 @@ final class AppModel {
 
     // MARK: Lifecycle
 
-    func start() {
+    /// `askForPermissions`: ask for Contacts and notifications shortly after launch (false while the
+    /// welcome window offers them).
+    func start(askForPermissions: Bool = true) {
         _ = panels
         if !TestMode.isActive { MissedCallNotifier.shared.install() }
         contacts.reload()
@@ -124,7 +126,7 @@ final class AppModel {
         if TestMode.isActive { startTestScenario(); return }
         #endif
         if isDemo { apply(); return }
-        requestPermissionsAfterLaunch()
+        if askForPermissions { requestPermissionsAfterLaunch() }
         if let address = selectedAddress { makeEngine(address: address) } else { apply() }
     }
 
