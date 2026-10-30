@@ -1,6 +1,6 @@
 {
   "name": "pickup-release-tooling",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Release-only tooling for Pickup (release-it). The app itself has no Node or other runtime dependencies.",
   "license": "MIT",
