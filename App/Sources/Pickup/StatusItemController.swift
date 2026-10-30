@@ -154,13 +154,21 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                let digit = event.charactersIgnoringModifiers.flatMap(Int.init), (1...3).contains(digit) {
                 return (router.selectTab?(digit - 1) ?? false) ? nil : event
             }
+            // ⌘C on a selected row copies its number (otherwise the normal copy).
+            if event.type == .keyDown, event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+               event.charactersIgnoringModifiers?.lowercased() == "c" {
+                return (router.copy?() ?? false) ? nil : event
+            }
             guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
             // Physical dial keys (main row and numpad) light up the on-screen key; typing is untouched.
-            if let key = event.characters, key.count == 1, "0123456789*#".contains(key) {
+            let isDialKey = event.characters.map { $0.count == 1 && "0123456789*#".contains($0) } ?? false
+            if isDialKey, let key = event.characters {
                 router.physicalKey?(key, event.type == .keyDown)
-                return event
             }
             guard event.type == .keyDown else { return event }
+            // Typing while the tabs or the list have focus goes on in the search field.
+            if let characters = event.characters, router.typeText?(characters) == true { return nil }
+            if isDialKey { return event }
             switch event.keyCode {
             case 126: return (router.move?(-1) ?? false) ? nil : event   // up
             case 125: return (router.move?(1) ?? false) ? nil : event    // down
@@ -168,8 +176,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             case 124: return (router.switchTab?(1) ?? false) ? nil : event   // right: next tab
             case 36, 76:                                                  // return / enter: call the selected row
                 return (router.submit?() ?? false) ? nil : event
-            case 48:                                                      // tab: into the list, shift-tab: back
-                return (router.tab?(event.modifierFlags.contains(.shift)) ?? false) ? nil : event
             case 53:                                                      // esc
                 if router.escape?() == true { return nil }
                 self.closePopover()

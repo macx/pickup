@@ -53,3 +53,27 @@ enum DialerRows {
         entries.first { DialNumber($0.number) != nil }?.number
     }
 }
+
+extension DialerRow {
+    /// What ⌘C and "Copy Number" put on the pasteboard: the number as the row knows it; nil for a
+    /// withheld caller.
+    var copyableNumber: String? {
+        switch kind {
+        case .call(let number): number.value
+        case .contact(let result): result.number
+        case .recent(let entry, _, _): entry.number.isEmpty ? nil : entry.number
+        }
+    }
+}
+
+/// Typing while the tabs or the list have keyboard focus goes on in the search field.
+enum TypeAhead {
+    /// True for printable text; false for whitespace, control characters and the function keys'
+    /// private-use characters (arrows, Page Up, …).
+    static func accepts(_ characters: String) -> Bool {
+        guard !characters.isEmpty, !characters.allSatisfy(\.isWhitespace) else { return false }
+        return characters.unicodeScalars.allSatisfy { scalar in
+            !CharacterSet.controlCharacters.contains(scalar) && !(0xF700...0xF8FF).contains(scalar.value)
+        }
+    }
+}

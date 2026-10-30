@@ -2736,6 +2736,60 @@
           }
         }
       }
+    },
+    "Copy Number": {
+      "comment": "Context menu item of a row in the popover's list: copies the phone number.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Number"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nummer kopieren"
+          }
+        }
+      }
+    },
+    "Search Results": {
+      "comment": "VoiceOver label of the list of contacts and numbers matching the popover's search field.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Results"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suchergebnisse"
+          }
+        }
+      }
+    },
+    "Number copied": {
+      "comment": "VoiceOver announcement after a phone number from the popover's list was copied with Command-C or the context menu.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number copied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nummer kopiert"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

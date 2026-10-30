@@ -27,4 +27,19 @@ final class RecentCallRowsTests: XCTestCase {
                                                      CallHistoryEntry(number: "+49300000456")]), "+49300000123")
         XCTAssertNil(DialerRows.redialNumber(in: []))
     }
+
+    func testCopyableNumber() {
+        let rows = DialerRows.recentRows([CallHistoryEntry(number: "+49300000123", name: "Jane Doe"), CallHistoryEntry(number: "")],
+                                         list: .missed)
+        XCTAssertEqual(rows.map(\.copyableNumber), ["+49300000123", nil], "a withheld caller has nothing to copy")
+        XCTAssertEqual(DialerRows.rows(for: "+49 30 0000123", contacts: [], fromKeypad: false).first?.copyableNumber,
+                       DialNumber("+49 30 0000123")?.value)
+    }
+
+    func testTypeAheadAcceptsOnlyPrintableText() {
+        for text in ["J", "j", "5", "+", "*", "#", "ä"] { XCTAssertTrue(TypeAhead.accepts(text), text) }
+        for text in ["", " ", "\t", "\r", "\u{1B}", "\u{F700}", "\u{F701}", "\u{7F}"] {
+            XCTAssertFalse(TypeAhead.accepts(text), text.debugDescription)
+        }
+    }
 }

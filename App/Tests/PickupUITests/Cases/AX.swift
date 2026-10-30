@@ -125,6 +125,7 @@ enum Key {
     static let comma: CGKeyCode = 43
     static let q: CGKeyCode = 12
     static let w: CGKeyCode = 13
+    static let c: CGKeyCode = 8
 }
 
 /// Keyboard events posted straight to the process (they do not go to whatever app is in front).

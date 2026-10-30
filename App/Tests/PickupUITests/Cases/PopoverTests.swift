@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 /// Popover, search, keypad, keyboard handling and window shortcuts (docs/TESTING.md, section 4).
@@ -41,10 +42,30 @@ final class PopoverTests: PickupUITestCase {
         XCTAssertFalse(element("recent-row-DC-0").isSelected, "no row starts selected: a stray Return never redials")
         XCTAssertTrue(exists("recent-row-DC-0-call"), "every row has its own call button")
 
-        keyboard.press(Key.tab)
-        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-0").isSelected }, "Tab moves into the list")
+        // ↓ from the search field selects the first row, like in the search results.
+        keyboard.press(Key.down)
+        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-0").isSelected }, "Down selects the first row")
         keyboard.press(Key.down)
         XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-1").isSelected })
+
+        // ⌘C copies the selected number (the pasteboard is restored afterwards).
+        let pasteboard = NSPasteboard.general
+        let saved = pasteboard.string(forType: .string)
+        defer { pasteboard.clearContents(); if let saved { pasteboard.setString(saved, forType: .string) } }
+        pasteboard.clearContents()
+        keyboard.press(Key.c, flags: .maskCommand)
+        XCTAssertTrue(Wait.until(3) { pasteboard.string(forType: .string)?.contains("0000") == true },
+                      "Command-C copies the selected row's number")
+
+        keyboard.press(Key.escape)
+        XCTAssertTrue(Wait.until(3) { !self.element("recent-row-DC-1").isSelected }, "Esc returns to the search field")
+        XCTAssertTrue(exists("popover-root"), "…and keeps the popover open")
+
+        // Tab follows the system order: field → tabs → list (which selects its first row).
+        keyboard.press(Key.tab)
+        XCTAssertFalse(element("recent-row-DC-0").isSelected, "the first Tab stops at the tabs")
+        keyboard.press(Key.tab)
+        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-0").isSelected }, "the second Tab enters the list")
         keyboard.press(Key.right)
         XCTAssertTrue(Wait.until(3) { self.exists("recent-row-MC-0") && self.element("recent-row-MC-0").isSelected },
                       "Right switches to the next tab and keeps the keyboard in the list")
@@ -52,13 +73,8 @@ final class PopoverTests: PickupUITestCase {
         XCTAssertTrue(Wait.until(3) { self.exists("recent-row-RC-0") && self.element("recent-row-RC-0").isSelected })
         keyboard.press(Key.left)
         XCTAssertTrue(Wait.until(3) { self.exists("recent-row-DC-0") && self.element("recent-row-DC-0").isSelected })
-
-        keyboard.press(Key.escape)
-        XCTAssertTrue(Wait.until(3) { !self.element("recent-row-DC-0").isSelected }, "Esc returns to the search field")
-        XCTAssertTrue(exists("popover-root"), "…and keeps the popover open")
         XCTAssertFalse(appLog.contains("-> dial()"), "moving through the list never dials")
 
-        keyboard.press(Key.tab)
         keyboard.press(Key.returnKey)
         XCTAssertTrue(waitExists("call-hud"), "Return calls the selected recent call")
         XCTAssertNotNil(appLog.range(of: #"dial .*123"#, options: .regularExpression), "Jane's number was dialed:\n\(appLog)")

@@ -36,7 +36,10 @@ struct DialerView: View {
     @AppStorage("recentCallsList") private var recentListRaw = CallHistoryList.dialed.rawValue
     /// The tab was changed from the keyboard while a row was selected: select the new tab's first row.
     @State private var selectFirstRecentRow = false
-    @FocusState private var fieldFocused: Bool
+    /// Keyboard focus. Tab runs field → tabs → list in the system order (also without Full Keyboard
+    /// Access); the tabs and the list are one focus stop each.
+    private enum Focus: Hashable { case field, tabs, list }
+    @FocusState private var focus: Focus?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: Derived state
@@ -145,13 +148,14 @@ struct DialerView: View {
             focusFieldSoon()
             DialerKeyRouter.shared.move = { delta in moveSelection(delta) }
             DialerKeyRouter.shared.escape = { handleEscape() }
-            DialerKeyRouter.shared.tab = { backwards in handleTab(backwards: backwards) }
             DialerKeyRouter.shared.switchTab = { delta in
                 guard let index = CallHistoryList.allCases.firstIndex(of: recentList) else { return false }
                 return selectTab(index + delta)
             }
             DialerKeyRouter.shared.selectTab = { index in selectTab(index) }
             DialerKeyRouter.shared.submit = { submitSelectedRow() }
+            DialerKeyRouter.shared.copy = { copySelectedNumber() }
+            DialerKeyRouter.shared.typeText = { characters in typeIntoField(characters) }
             DialerKeyRouter.shared.physicalKey = { key, down in physicalKey(key, down: down) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .pickupPopoverWillShow)) { _ in
@@ -174,11 +178,19 @@ struct DialerView: View {
             selectedID = nil
             pendingConfirmationID = nil
         }
-        .onChange(of: fieldFocused) { _, focused in
-            if focused {
+        .onChange(of: focus) { _, new in
+            switch new {
+            case .field:
                 collapseCaret()
-            } else if queryIsEmpty {
-                selectedID = nil   // Return goes to the focused control now, not to a recent call
+            case .list:
+                // Entering the list (Tab, ↓ from the tabs) selects its first row, so Return calls it.
+                let rows = self.rows
+                if !rows.contains(where: { $0.id == selectedID }), let first = rows.first {
+                    selectedID = first.id
+                    announceSelection(first)
+                }
+            case .tabs, nil:
+                if queryIsEmpty { selectedID = nil }   // Return goes to the focused control now, not to a recent call
             }
         }
         .onChange(of: recentListRaw) { _, _ in
@@ -194,7 +206,7 @@ struct DialerView: View {
     private func focusFieldSoon() {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(200))
-            fieldFocused = true
+            focus = .field
             collapseCaret()
         }
     }
@@ -210,36 +222,16 @@ struct DialerView: View {
         }
     }
 
-    /// Esc: leave the recent calls list first, then clear the field; with an empty field the popover
-    /// closes (return false).
+    /// Esc: back to the search field from the tabs, the list or a selected row first, then clear the
+    /// field; with an empty field the popover closes (return false).
     private func handleEscape() -> Bool {
-        if queryIsEmpty, selectedID != nil {
+        if focus == .tabs || focus == .list || (queryIsEmpty && selectedID != nil) {
             leaveList()
             return true
         }
         guard !text.isEmpty else { return false }
         text = ""
         keypadText = ""
-        return true
-    }
-
-    /// Tab moves from the field into the list (selects the first row), Shift-Tab back to the field.
-    /// Typing still goes to the field; Return calls the selected row.
-    ///
-    /// A second Tab keeps its system meaning (with Full Keyboard Access it moves on to the tabs and
-    /// buttons), so the list is never a keyboard trap; leaving the field clears the list selection.
-    private func handleTab(backwards: Bool) -> Bool {
-        let rows = self.rows
-        let inList = rows.contains { $0.id == selectedID }
-        if backwards {
-            guard inList, queryIsEmpty else { return false }
-            leaveList()
-            announce(String(localized: "Search field", comment: "VoiceOver announcement when the keyboard leaves the recent calls list and returns to the popover's search field."))
-            return true
-        }
-        guard !rows.isEmpty, !inList else { return false }
-        selectedID = rows[0].id
-        announceSelection(rows[0])
         return true
     }
 
@@ -272,7 +264,7 @@ struct DialerView: View {
         return String(localized: "\(display.title), selected", comment: "VoiceOver announcement when a row of the popover's list is selected with the keyboard. %@ is the name or number.")
     }
 
-    /// The text field keeps keyboard focus while rows are selected, so VoiceOver is told explicitly.
+    /// The text field or the list keeps keyboard focus while rows are selected, so VoiceOver is told explicitly.
     private func announceSelection(_ row: DialerRow) {
         announce(selectionText(row))
     }
@@ -285,7 +277,7 @@ struct DialerView: View {
         selectedID = nil
         pendingConfirmationID = nil
         error = nil
-        fieldFocused = true
+        focus = .field
         collapseCaret()
     }
 
@@ -319,12 +311,12 @@ struct DialerView: View {
                         .accessibilityHidden(true)
                     TextField("Search", text: $text)
                         .textFieldStyle(.plain)
-                        .focused($fieldFocused)
+                        .focused($focus, equals: .field)
                         .onSubmit(submitFromReturn)
                         .accessibilityIdentifier("search-field")
                         .accessibilityLabel(Text("Search contacts or enter a number", comment: "VoiceOver label of the popover's search field."))
                     if !text.isEmpty {
-                        Button { text = ""; keypadText = ""; fieldFocused = true } label: {
+                        Button { text = ""; keypadText = ""; focus = .field } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
@@ -348,7 +340,7 @@ struct DialerView: View {
         } else {
             manuallyOpen = true
         }
-        fieldFocused = true
+        focus = .field
     }
 
     // MARK: Keypad
@@ -470,9 +462,8 @@ struct DialerView: View {
                                       enabled: model.canDial, trailingInset: row.isRecent ? Self.callButtonSize + 8 : 0)
                         }
                         .buttonStyle(.plain)
-                        // Rows never take keyboard focus: the selection outline is their only indicator
-                        // (a second, system focus ring looked like two selections). The keyboard reaches
-                        // them with Tab and the arrow keys from the field; the call buttons stay focusable.
+                        // Rows never take keyboard focus: the list is one focus stop and the selection
+                        // outline its only indicator (a second, system focus ring looked like two selections).
                         .focusable(false)
                         .disabled(!model.canDial)
                         .id(row.id)
@@ -481,6 +472,7 @@ struct DialerView: View {
                         .simultaneousGesture(TapGesture(count: 2).onEnded { activate(row) })
                         .accessibilityAction(.default) { activate(row) }
                         .accessibilityHint(Text("Double-click or press Return to call.", comment: "VoiceOver hint of a search result row in the popover."))
+                        .contextMenu { rowMenu(row) }
                         .overlay(alignment: .trailing) {
                             if row.isRecent { recentCallButton(row) }
                         }
@@ -493,6 +485,14 @@ struct DialerView: View {
             .frame(width: Self.contentWidth)
             .frame(maxHeight: fill ? .infinity : (showKeypad ? 3 : 6) * 50, alignment: .top)
             .scrollEdgeEffectStyle(.soft, for: .bottom)   // rows fade out at the bottom instead of being cut
+            // One focus stop for the whole list: ↑/↓ select, Return calls, ⌘C copies. The selected row's
+            // outline is the focus indicator (no second system ring).
+            .focusable(interactions: .edit)
+            .focused($focus, equals: .list)
+            .focusEffectDisabled()
+            .accessibilityLabel(queryIsEmpty
+                ? Text("Recent Calls")
+                : Text("Search Results", comment: "VoiceOver label of the list of contacts and numbers matching the popover's search field."))
             .onChange(of: selectedID) { _, new in
                 if let new { proxy.scrollTo(new) }
             }
@@ -514,6 +514,7 @@ struct DialerView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .focusable(false)   // Return calls the selected row; one Tab stop per row would make the list a long detour
         .disabled(!dialable)
         .opacity(dialable ? 1 : 0.35)
         .padding(.trailing, 2)   // circle 8 pt from the row's edge, like the avatar on the left
@@ -522,15 +523,30 @@ struct DialerView: View {
         .accessibilityIdentifier(row.testIdentifier + "-call")
     }
 
+    @ViewBuilder
+    private func rowMenu(_ row: DialerRow) -> some View {
+        Button("Call") { selectedID = row.id; activate(row) }
+            .disabled(!model.canDial)
+        Button {
+            copy(row)
+        } label: {
+            Text("Copy Number", comment: "Context menu item of a row in the popover's list: copies the phone number.")
+        }
+        .disabled(row.copyableNumber == nil)
+    }
+
     // MARK: Recent calls
 
     private var recentCalls: some View {
         let history = model.callHistory
         let rows = self.rows
         return VStack(spacing: 8) {
-            RecentCallsTabs(selection: $recentListRaw)
+            RecentCallsTabs(selection: $recentListRaw, focused: focus == .tabs)
+                .focusable(interactions: .edit)
+                .focused($focus, equals: .tabs)
+                .focusEffectDisabled()   // RecentCallsTabs draws its own ring
                 .accessibilityIdentifier("recent-tabs")
-            .accessibilityHint(Text("Use the left and right arrow keys or Command-1 to 3 to switch tabs.", comment: "VoiceOver hint of the recent calls tabs in the popover."))
+                .accessibilityHint(Text("Use the left and right arrow keys or Command-1 to 3 to switch tabs.", comment: "VoiceOver hint of the recent calls tabs in the popover."))
 
             if rows.isEmpty {
                 // Rows stay cached while the phone is asked again; the spinner only shows before the first answer.
@@ -601,17 +617,47 @@ struct DialerView: View {
     private func appendKey(_ key: String) {
         text.append(key)
         keypadText = text
-        fieldFocused = true
+        focus = .field
         collapseCaret()
     }
 
     private func moveSelection(_ delta: Int) -> Bool {
         let rows = self.rows
         guard !rows.isEmpty else { return false }
+        if focus == .tabs {
+            guard delta > 0 else { return false }
+            focus = .list   // ↓ from the tabs enters the list at its first row
+            return true
+        }
         let index = min(max(selectedIndex + delta, 0), rows.count - 1)
         if selectedID != rows[index].id { announceSelection(rows[index]) }
         selectedID = rows[index].id
-        fieldFocused = true   // arrow keys bring keyboard focus back from any button to the field
+        if focus != .list { focus = .field }   // arrow keys bring keyboard focus back from any button to the field
+        return true
+    }
+
+    /// ⌘C on a selected row copies its number. A search text in the field keeps the normal copy.
+    private func copySelectedNumber() -> Bool {
+        guard focus != .tabs, focus != .field || queryIsEmpty else { return false }
+        let rows = self.rows
+        guard rows.indices.contains(selectedIndex), rows[selectedIndex].copyableNumber != nil else { return false }
+        copy(rows[selectedIndex])
+        return true
+    }
+
+    private func copy(_ row: DialerRow) {
+        guard let number = row.copyableNumber else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(number, forType: .string)
+        announce(String(localized: "Number copied", comment: "VoiceOver announcement after a phone number from the popover's list was copied with Command-C or the context menu."))
+    }
+
+    /// Typing while the tabs or the list have focus continues the search in the field.
+    private func typeIntoField(_ characters: String) -> Bool {
+        guard focus == .tabs || focus == .list, TypeAhead.accepts(characters) else { return false }
+        text.append(characters)
+        focus = .field
+        collapseCaret()
         return true
     }
 
@@ -636,7 +682,7 @@ struct DialerView: View {
         if queryIsEmpty, let number = redialNumber {
             text = number
             keypadText = nil   // came from the phone, not from the keypad: service codes need a confirmation
-            fieldFocused = true
+            focus = .field
             collapseCaret()
             return
         }
@@ -685,14 +731,16 @@ final class DialerKeyRouter {
     static let shared = DialerKeyRouter()
     var move: ((Int) -> Bool)?
     var escape: (() -> Bool)?
-    /// Tab (false) or Shift-Tab (true); returns true when the dialer used the key.
-    var tab: ((Bool) -> Bool)?
     /// Left/right arrow: previous/next recent calls tab (only while the field is empty).
     var switchTab: ((Int) -> Bool)?
     /// ⌘1 to ⌘3: recent calls tab by position.
     var selectTab: ((Int) -> Bool)?
     /// Return/Enter: calls the selected row, whichever control has keyboard focus; false = no row selected.
     var submit: (() -> Bool)?
+    /// ⌘C: copies the selected row's number; false = the system copy applies.
+    var copy: (() -> Bool)?
+    /// Printable text typed while the tabs or the list have focus; true = it went to the search field.
+    var typeText: ((String) -> Bool)?
     /// A physical dial key (0-9 * #) went down/up; drives the on-screen key highlight.
     var physicalKey: ((String, Bool) -> Void)?
 }
@@ -848,6 +896,8 @@ private struct SteadyPressStyle: ButtonStyle {
 /// texts, which shifted the whole content. VoiceOver still gets a real segmented picker.
 private struct RecentCallsTabs: View {
     @Binding var selection: String
+    /// Keyboard focus is on the tabs (←/→ switch): drawn as a ring around the control.
+    var focused = false
 
     var body: some View {
         HStack(spacing: 2) {
@@ -870,10 +920,16 @@ private struct RecentCallsTabs: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .focusable(false)   // the control is one focus stop; ←/→ switch the tab
             }
         }
         .padding(2)
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            if focused {
+                RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.selectionRing, lineWidth: 2)
+            }
+        }
         .frame(maxWidth: .infinity)
         .accessibilityRepresentation {
             Picker(selection: $selection) {
