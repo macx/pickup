@@ -100,6 +100,21 @@ public enum ATParser {
         )
     }
 
+    /// Parses one call list entry, `+CPBR: <index>,"<number>",<type>,"<name>"`. Android appends the
+    /// number type to contact names ("Jane Doe/M"); that suffix is removed. Entries without a number
+    /// (withheld callers) keep an empty number and no name (the phone puts a generic text there).
+    public static func parseCPBR(_ line: String) -> CallHistoryEntry? {
+        guard let fields = fields(of: line, prefix: "+CPBR:"), fields.count >= 2, Int(fields[0]) != nil else { return nil }
+        let number = fields[1].trimmingCharacters(in: .whitespaces)
+        guard !number.isEmpty else { return CallHistoryEntry(number: "") }
+        var name = fields.count > 3 ? fields[3].trimmingCharacters(in: .whitespaces) : ""
+        if let slash = name.lastIndex(of: "/"), name.distance(from: slash, to: name.endIndex) == 2,
+           let type = name.last, "HMWO".contains(type) {
+            name = String(name[..<slash]).trimmingCharacters(in: .whitespaces)
+        }
+        return CallHistoryEntry(number: number, name: name.isEmpty ? nil : name)
+    }
+
     /// Splits the arguments after `prefix` at commas outside double quotes and strips the quotes.
     /// Returns nil if the line does not start with `prefix`.
     static func fields(of line: String, prefix: String) -> [String]? {

@@ -32,7 +32,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pickup verwendet Bluetooth, um sich mit Ihrem Android-Telefon zu verbinden und dessen Anrufe zu steuern."
+            "value": "Pickup verwendet Bluetooth, um sich mit deinem Android-Telefon zu verbinden und dessen Anrufe zu steuern."
           }
         }
       }
@@ -50,7 +50,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pickup sucht die Namen von Anrufern in Ihren Kontakten."
+            "value": "Pickup sucht die Namen von Anrufern in deinen Kontakten."
           }
         }
       }

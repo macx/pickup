@@ -94,17 +94,18 @@ final class Canvas {
         let small = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: sRGB,
                               bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         let full = CGRect(x: 0, y: 0, width: w, height: h)
-        let base: [CGColor] = look == .light ? [rgb(0xFBF9F6), rgb(0xF0EBE5)] : [rgb(0x1E1A17), rgb(0x0E0C0B)]
+        let base: [CGColor] = look == .light ? [rgb(0xE9EEFF), rgb(0xFFEDE3)] : [rgb(0x0F1433), rgb(0x1C0E22)]
         let linear = CGGradient(colorsSpace: sRGB, colors: base as CFArray, locations: [0, 1])!
         small.drawLinearGradient(linear, start: CGPoint(x: 0, y: full.maxY), end: CGPoint(x: full.maxX, y: 0),
                                  options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
         let size = max(full.width, full.height)
-        // Soft glows: brand orange low right, warm peach top left, a lighter centre.
+        // Colourful glows, like a modern macOS wallpaper: brand orange low right, violet top left, sky blue
+        // top right, rose low left (y = 0 is the bottom).
         let glows: [(CGFloat, CGFloat, CGFloat, CGColor)] = look == .light
-            ? [(0.86, 0.02, 0.75, rgb(0xF2571A, 0.18)), (0.08, 0.95, 0.65, rgb(0xFFB48C, 0.26)),
-               (0.45, 0.45, 0.55, rgb(0xFFFFFF, 0.35))]
-            : [(0.90, 0.0, 0.70, rgb(0xFF6A2B, 0.22)), (0.05, 1.0, 0.60, rgb(0x5A3220, 0.20)),
-               (0.45, 0.55, 0.50, rgb(0x2B2622, 0.30))]
+            ? [(0.92, 0.05, 0.70, rgb(0xFF7A3D, 0.42)), (0.05, 0.95, 0.70, rgb(0x8B7CFF, 0.40)),
+               (0.85, 1.00, 0.55, rgb(0x5BC8FF, 0.34)), (0.10, 0.05, 0.55, rgb(0xFF8FB1, 0.30))]
+            : [(0.92, 0.05, 0.70, rgb(0xFF6A2B, 0.50)), (0.05, 0.95, 0.70, rgb(0x6A4CFF, 0.50)),
+               (0.85, 1.00, 0.55, rgb(0x1FA3C9, 0.34)), (0.10, 0.05, 0.55, rgb(0xC23A8A, 0.36))]
         for (fx, fy, fr, color) in glows {
             let center = CGPoint(x: fx * full.width, y: fy * full.height)
             let radial = CGGradient(colorsSpace: sRGB, colors: [color, color.copy(alpha: 0)!] as CFArray,
@@ -224,25 +225,29 @@ func feature(_ images: [CGImage], width: Int, look: Look, name: String, gap: CGF
     c.write(name)
 }
 
-/// Hero: the top-right corner of a Mac. Menu bar with the Pickup glyph, the incoming-call banner where macOS
-/// shows it, and (when a capture in this appearance exists) the popover open below the glyph.
+/// Hero: the top-right corner of a Mac, cropped to the content. Menu bar with the Pickup glyph, the popover with
+/// the recent calls open below it, and the incoming-call banner where macOS shows it, with the call window of
+/// a second caller below the banner.
 func hero(look: Look, name: String) {
     let suffix = look == .light ? "light" : "dark"
     let banner = require("banner-\(suffix)-en-1")
-    let pop = popover("popover-search-\(suffix)-en-1", look: look)
-    let width = 2400, bar: CGFloat = 56, margin: CGFloat = 64
-    let height = pop.map { Int(bar + 12 + CGFloat($0.height) + 110) } ?? 600
+    let pop = popover("popover-empty-\(suffix)-en-1", look: look) ?? require("popover-empty-\(suffix)-en-1")
+    let call = load("waiting-\(suffix)-en-1")
+    let bar: CGFloat = 56, margin: CGFloat = 120, gap: CGFloat = 110
+    let columnW = max(CGFloat(banner.width), CGFloat(call?.width ?? 0))
+    let width = Int(margin + CGFloat(pop.width) + gap + columnW + margin)
+    let columnH = CGFloat(banner.height) + (call.map { 70 + CGFloat($0.height) } ?? 0)
+    let height = Int(bar + 6 + max(CGFloat(pop.height), 24 + columnH) + 120)
     let c = Canvas(width: width, height: height, look: look)
     c.wallpaper()
-    let bannerX = CGFloat(width) - margin - CGFloat(banner.width)
-    if let pop {
-        let glyphX = bannerX - 96 - CGFloat(pop.width) / 2
-        menuBar(c, height: bar, glyphX: glyphX, highlighted: true)
-        c.window(pop, x: (glyphX - CGFloat(pop.width) / 2).rounded(), y: bar + 6)
-    } else {
-        menuBar(c, height: bar, glyphX: bannerX - 140, highlighted: false)
+    let popX = margin
+    menuBar(c, height: bar, glyphX: popX + CGFloat(pop.width) / 2, highlighted: true)
+    c.window(pop, x: popX, y: bar + 6)
+    let columnX = popX + CGFloat(pop.width) + gap
+    c.window(banner, x: (columnX + (columnW - CGFloat(banner.width)) / 2).rounded(), y: bar + 30)
+    if let call {
+        c.window(call, x: (columnX + (columnW - CGFloat(call.width)) / 2).rounded(), y: bar + 30 + CGFloat(banner.height) + 70)
     }
-    c.window(banner, x: bannerX, y: bar + 30)
     c.write(name)
 }
 
@@ -266,7 +271,8 @@ func lightAndDark(name: String) {
 }
 
 try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-hero(look: .light, name: "hero.png")
+// The README uses the dark images: on macOS 26 a capture of the popover window alone renders its Liquid Glass
+// without a backdrop, which is flat grey in light mode. Banner, call window and Settings exist in both.
 hero(look: .dark, name: "hero-dark.png")
 lightAndDark(name: "light-dark.png")
 for look in [Look.light, .dark] {
@@ -276,9 +282,10 @@ for look in [Look.light, .dark] {
     feature([require("hud-\(s)-en-1"), require("hud-ended-\(s)-en-1")], width: 1600, look: look, name: "call-hud-\(s).png")
     feature([require("settings-\(s)-en-1")], width: 1600, look: look, name: "settings-\(s).png")
     if let waiting = load("waiting-\(s)-en-1") {
-        feature([waiting], width: 1600, look: look, name: "call-waiting-\(s).png", padY: 170)
+        feature([waiting] + [load("held-\(s)-en-1")].compactMap { $0 }, width: 1600, look: look,
+                name: "call-waiting-\(s).png", padY: 170)
     }
-    for lang in ["en", "de"] {
+    for lang in ["en", "de"] where look == .dark {
         let tag = lang == "en" ? "" : "-de"
         if let empty = popover("popover-empty-\(s)-\(lang)-1", look: look),
            let search = popover("popover-search-\(s)-\(lang)-1", look: look) {

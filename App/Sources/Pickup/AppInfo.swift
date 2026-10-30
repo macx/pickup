@@ -2,9 +2,10 @@ import Foundation
 
 /// Static facts about the app shown in the About panel.
 enum AppInfo {
-    /// Public source repository. `nil` (or a placeholder) hides the link in the About panel.
-    /// Set it once the public `pickup` repository exists.
-    static let repositoryURL: String? = nil
+    /// Public source repository, linked in the About panel. `nil` hides the link.
+    static let repositoryURL: String? = "https://github.com/macx/pickup"
+    /// The author's website, linked in the About panel. `nil` hides the link.
+    static let websiteURL: String? = "https://davideiken.de"
 
     static var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"

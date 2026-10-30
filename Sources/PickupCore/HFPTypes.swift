@@ -142,6 +142,9 @@ public enum HFPCommand: Equatable, Sendable {
     case dial             // ATD<number>;
     case dtmf             // AT+VTS=<digit>
     case currentCalls     // AT+CLCC
+    case selectPhonebook  // AT+CPBS="<memory>"
+    case readPhonebook    // AT+CPBR=<first>,<last>
+    case callHold         // AT+CHLD=<n> (not the AT+CHLD=? query of the SLC set-up)
     case other(String)    // e.g. "AT+BRSF", "AT+CIND?"
 
     public init(atCommand line: String) {
@@ -156,6 +159,12 @@ public enum HFPCommand: Equatable, Sendable {
             self = .dtmf
         } else if command == "AT+CLCC" {
             self = .currentCalls
+        } else if command.hasPrefix("AT+CPBS=\"") {
+            self = .selectPhonebook
+        } else if command.hasPrefix("AT+CPBR="), command != "AT+CPBR=?" {
+            self = .readPhonebook
+        } else if command.hasPrefix("AT+CHLD="), command != "AT+CHLD=?" {
+            self = .callHold
         } else {
             self = .other(HFPCommand.name(of: command))
         }
@@ -174,8 +183,8 @@ public enum HFPCommand: Equatable, Sendable {
     ///
     /// Only action (`AT+CLCC`), read (`AT+CIND?`) and test (`AT+CHLD=?`) commands get information
     /// responses. Set commands (`AT+CLIP=1`, `AT+CCWA=1`) get none, and their prefix must not swallow
-    /// the unsolicited result of the same name (`+CLIP:` while ringing). `AT+BRSF=` is the one HFP
-    /// set command that is answered with `+BRSF:`.
+    /// the unsolicited result of the same name (`+CLIP:` while ringing). `AT+BRSF=` and `AT+CPBR=`
+    /// are the set commands answered with information responses (`+BRSF:`, `+CPBR:`).
     static func responsePrefix(of line: String) -> String? {
         let command = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard command.hasPrefix("AT+") else { return nil }
@@ -184,9 +193,20 @@ public enum HFPCommand: Equatable, Sendable {
         guard !name.isEmpty else { return nil }
         let rest = body.dropFirst(name.count)
         let isSetCommand = rest.hasPrefix("=") && rest != "=?"
-        if isSetCommand && name != "+BRSF" { return nil }
+        if isSetCommand && name != "+BRSF" && name != "+CPBR" { return nil }
         return String(name)
     }
+}
+
+/// Three-way calling commands (`AT+CHLD=<n>`, HFP 1.8 section 4.22). The phone applies them to its
+/// calls: with one call, `2` holds or resumes it; with a held and an active call, `2` swaps them.
+public enum CallHoldAction: Int, Equatable, Sendable {
+    /// `0`: releases the held call, or rejects the waiting call.
+    case releaseHeldOrRejectWaiting = 0
+    /// `1`: ends the active call and takes the held or waiting call.
+    case releaseActiveAcceptOther = 1
+    /// `2`: puts the active call on hold and takes the held or waiting call.
+    case holdActiveAcceptOther = 2
 }
 
 /// Final result of an AT command.

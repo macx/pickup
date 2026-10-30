@@ -16,6 +16,8 @@ final class AppleHFPTransportTests: XCTestCase {
         var disconnectDropsSLC = false
         var onClosed: (@MainActor () -> Void)?
         var deviceName: String? = "Pixel 9 Pro"
+        var audioGatewayFeatures: UInt32 = 0
+        var callHoldModes: UInt32 = 0
         var underlying: AnyObject { self }
         private(set) var calls: [String] = []
         private(set) var delegates: [HandsFreeDelegate] = []
@@ -41,6 +43,7 @@ final class AppleHFPTransportTests: XCTestCase {
         func sendDTMF(_ digit: String) { calls.append("VTS") }
         func transferAudioToPhone() { calls.append("phone") }
         func currentCallList() { calls.append("CLCC") }
+        func sendATCommand(_ line: String) { calls.append(line) }
         func owns(channel: AnyObject) -> Bool { channel === self.channel }
         func indicatorSnapshot() -> [HFPIndicator] { [.call(false), .callSetup(.none)] }
         func diagnostics() -> [String] { [] }
@@ -599,5 +602,187 @@ final class AppleHFPTransportTests: XCTestCase {
         XCTAssertEqual(link.count("CLCC"), 1)
         transport.receivedLine("OK", detail: nil) // AT+CLCC itself is invisible without the tap
         XCTAssertEqual(transport.linkState, .connected)
+    }
+
+    // MARK: Call history
+
+    private var historyEvents: [TransportEvent] {
+        events.filter { if case .callHistory = $0 { true } else { false } }
+    }
+
+    func testCallHoldNeedsThreeWayCallingAndReportsTheAnswer() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        XCTAssertFalse(transport.supportsCallHold)
+        XCTAssertThrowsError(try transport.callHold(.holdActiveAcceptOther)) { XCTAssertEqual($0 as? TransportError, .unsupported) }
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CHLD") })
+
+        link.audioGatewayFeatures = 0b1   // three-way calling
+        link.callHoldModes = 0b1011       // CHLD 0, 1 and 2
+        XCTAssertTrue(transport.supportsCallHold)
+        try transport.callHold(.holdActiveAcceptOther)
+        XCTAssertEqual(link.calls.last, "AT+CHLD=2")
+        transport.sentLine("AT+CHLD=2", detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        XCTAssertTrue(events.contains(.commandCompleted(.callHold, .ok)))
+    }
+
+    func testCallHoldSupportNeedsModesZeroOneAndTwo() {
+        XCTAssertTrue(AppleHFPTransport.supportsCallHold(features: 0x3ef, holdModes: 0x7f))
+        XCTAssertFalse(AppleHFPTransport.supportsCallHold(features: 0x3ee, holdModes: 0x7f), "no three-way calling bit")
+        XCTAssertFalse(AppleHFPTransport.supportsCallHold(features: 0x1, holdModes: 0b0011), "mode 2 missing")
+    }
+
+    /// Regression (2026-10-30): `AT+CPBS` was never written after a failed write of IOBluetooth's own
+    /// command, and the read waited for an answer forever (endless spinner in the dialer).
+    func testUnansweredCallListReadIsGivenUp() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        clock.advance(by: 10)
+        try transport.readCallHistory(.dialed, count: 2)
+        try transport.readCallHistory(.missed, count: 2)
+        XCTAssertEqual(link.calls.last, #"AT+CPBS="DC""#)
+        clock.advance(by: 7)
+        XCTAssertFalse(events.contains(.callHistoryUnanswered(.dialed)))
+        clock.advance(by: 1)
+        XCTAssertEqual(events.filter { if case .callHistoryUnanswered = $0 { true } else { false } },
+                       [.callHistoryUnanswered(.dialed), .callHistoryUnanswered(.missed)])
+
+        // A late answer to the given-up command is ignored; the next read starts cleanly.
+        transport.sentLine(#"AT+CPBS="DC""#, detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        XCTAssertFalse(link.calls.contains("AT+CPBR=1,2"))
+        try transport.readCallHistory(.received, count: 2)
+        XCTAssertEqual(link.calls.last, #"AT+CPBS="RC""#)
+    }
+
+    // MARK: Review fixes (PR #7)
+
+    func testCallHoldNeedsTheWriteHook() {
+        let transport = makeTransport(address: "aa-bb-cc-dd-ee-02", assumeOutgoingTap: false)
+        let link = connected(transport)
+        link.audioGatewayFeatures = 0b1
+        link.callHoldModes = 0b1011
+        XCTAssertFalse(transport.supportsCallHold, "without the hook the phone's OK cannot be matched to AT+CHLD")
+    }
+
+    func testCallListReadGivesUpWhenTheLinkNeverBecomesIdle() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        try transport.readCallHistory(.dialed, count: 5)
+        transport.sentLine("AT+VGS=7", detail: nil, channel: link.channel)   // never answered, silent link
+        clock.advance(by: 17.5)
+        XCTAssertFalse(events.contains(.callHistoryUnanswered(.dialed)))
+        clock.advance(by: 1)
+        XCTAssertTrue(events.contains(.callHistoryUnanswered(.dialed)), "the queued read is not left waiting forever")
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "IOBluetooth's safety gate is never bypassed")
+    }
+
+    func testDiscardedCallListCommandIsUnansweredNotRefused() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        clock.advance(by: 10)
+        try transport.readCallHistory(.dialed, count: 5)
+        transport.sentLine(#"AT+CPBS="DC""#, detail: nil, channel: link.channel)
+        clock.advance(by: 6)
+        transport.receivedLine("+CIEV: 5,3", detail: nil)   // an unrelated line: the tracker drops the stale command
+        XCTAssertTrue(events.contains(.callHistoryUnanswered(.dialed)))
+        XCTAssertFalse(events.contains(.callHistory(.dialed, nil)), "no answer is not a refusal")
+    }
+
+    func testCallHistoryIsSelectedThenReadOneListAtATime() async throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        clock.advance(by: 10)
+        try transport.readCallHistory(.dialed, count: 2)
+        try transport.readCallHistory(.missed, count: 2)
+        XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+") }, [#"AT+CPBS="DC""#], "the second list waits for the first")
+
+        transport.sentLine(#"AT+CPBS="DC""#, detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        await drainMainQueue()   // the follow-up command is deferred out of the callback
+        XCTAssertEqual(link.calls.last, "AT+CPBR=1,2")
+
+        transport.sentLine("AT+CPBR=1,2", detail: nil, channel: link.channel)
+        transport.receivedLine(#"+CPBR: 1,"+49300000123",145,"Jane Doe""#, detail: nil)
+        transport.receivedLine(#"+CPBR: 2,"+49300000456",145,"""#, detail: nil)
+        transport.receivedLine("OK", detail: nil)
+        await drainMainQueue()
+        XCTAssertEqual(historyEvents, [.callHistory(.dialed, [
+            CallHistoryEntry(number: "+49300000123", name: "Jane Doe"), CallHistoryEntry(number: "+49300000456"),
+        ])])
+        XCTAssertEqual(link.calls.last, #"AT+CPBS="MC""#)
+
+        // The phone refuses the second list (no access to the call history).
+        transport.sentLine(#"AT+CPBS="MC""#, detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        await drainMainQueue()
+        transport.sentLine("AT+CPBR=1,2", detail: nil, channel: link.channel)
+        transport.receivedLine("+CME ERROR: 3", detail: nil)
+        XCTAssertEqual(historyEvents.last, .callHistory(.missed, nil))
+    }
+
+    /// Regression test for the crash of 2026-10-29 (SIGSEGV in `-[IOBluetoothHandsFreeDevice
+    /// processResultCode:]`): a read interleaved with IOBluetooth's own commands right after the SLC.
+    func testCallHistoryWaitsForTheQuietPeriodAndAnIdleLink() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        clock.advance(by: 2)
+        try transport.readCallHistory(.dialed, count: 5)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "not while IOBluetooth still finishes the set-up")
+
+        // IOBluetooth's own command is still waiting for its reply when the quiet period ends.
+        transport.sentLine("AT+VGS=7", detail: nil, channel: link.channel)
+        clock.advance(by: 8)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "not while another command waits for its reply")
+        transport.receivedLine("OK", detail: nil)
+        clock.advance(by: 0.5)
+        XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+CPB") }, [#"AT+CPBS="DC""#])
+    }
+
+    /// The read starts as soon as IOBluetooth's follow-up commands went out and were answered, instead
+    /// of always waiting the full quiet period.
+    func testCallHistoryStartsOnceIOBluetoothsFollowUpsAreAnswered() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        try transport.readCallHistory(.dialed, count: 5)
+        transport.sentLine("AT+VGS=7", detail: nil, channel: link.channel)
+        transport.receivedLine("OK", detail: nil)
+        clock.advance(by: 0.5)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "AT+VGM is still due")
+        transport.sentLine("AT+VGM=7", detail: nil, channel: link.channel)
+        clock.advance(by: 0.5)
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "AT+VGM waits for its reply")
+        transport.receivedLine("OK", detail: nil)
+        clock.advance(by: 0.5)
+        XCTAssertEqual(link.calls.filter { $0.hasPrefix("AT+CPB") }, [#"AT+CPBS="DC""#], "about 1.5 s after the link came up, not 10 s")
+    }
+
+    func testCallHistoryNeedsTheWriteHookAndALink() throws {
+        let untapped = makeTransport(address: "aa-bb-cc-dd-ee-01", assumeOutgoingTap: false)
+        _ = connected(untapped)
+        XCTAssertThrowsError(try untapped.readCallHistory(.dialed, count: 5)) {
+            XCTAssertEqual($0 as? TransportError, .unsupported)
+        }
+        let transport = makeTransport()
+        XCTAssertThrowsError(try transport.readCallHistory(.dialed, count: 5)) {
+            XCTAssertEqual($0 as? TransportError, .notConnected)
+        }
+    }
+
+    func testLinkLossDropsQueuedCallHistoryReads() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        try transport.readCallHistory(.dialed, count: 5)
+        try transport.readCallHistory(.received, count: 5)
+        dropped(transport, link)
+        clock.advance(by: 2)
+        let again = made.last!
+        again.isConnected = true
+        transport.handsFree(again, connectedWithStatus: 0)
+        try transport.readCallHistory(.missed, count: 5)
+        clock.advance(by: 10)
+        XCTAssertEqual(again.calls.filter { $0.hasPrefix("AT+CPBS") }.last, #"AT+CPBS="MC""#,
+                       "a fresh link starts with the new request, not with the old queue")
     }
 }

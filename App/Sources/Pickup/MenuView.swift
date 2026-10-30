@@ -8,26 +8,95 @@ struct MenuView: View {
     let openSettings: () -> Void
     let showAbout: () -> Void
     let close: () -> Void
+    @AppStorage(PopoverWidth.defaultsKey) private var savedWidth = Double(PopoverWidth.minimum)
+    /// Width while an edge is being dragged; saved when the drag ends.
+    @State private var liveWidth: CGFloat?
+
+    private var width: CGFloat { liveWidth ?? PopoverWidth.clamped(savedWidth) }
 
     var body: some View {
         // Structure for step B: [top bar: grid button + search capsule] / [collapsible content: keypad or
         // results] / [bottom bar]. The three parts are separate stack children so the top bar and the
         // folding keypad can be added without reworking the bottom bar or the guidance area.
         VStack(spacing: 0) {
-            DialerView(model: model, openSettings: openSettings, close: close)
+            DialerView(model: model, contentWidth: width - 2 * DialerView.sideMargin, openSettings: openSettings, close: close)
 
-            BottomBar(status: model.connection, openSettings: openSettings, showAbout: showAbout)
+            BottomBar(status: model.connection,
+                      battery: model.batteryDisplay == .popover ? model.phoneBattery : nil,
+                      openSettings: openSettings, showAbout: showAbout)
         }
-        .frame(width: 300)
+        .frame(width: width)
+        .overlay(alignment: .leading) { resizeEdge(.leading) }
+        .overlay(alignment: .trailing) { resizeEdge(.trailing) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("popover-root")
         .onAppear { Task { await model.permissions.refresh() } }
     }
 }
 
+extension MenuView {
+    private func resizeEdge(_ edge: HorizontalEdge) -> some View {
+        PopoverResizeEdge(edge: edge, width: width) { live in
+            liveWidth = live
+        } commit: { final in
+            liveWidth = nil
+            savedWidth = Double(final)
+        }
+    }
+}
+
+/// An invisible strip along a side edge of the popover: dragging it changes the popover's width (the
+/// keypad keeps its size; search and lists grow). VoiceOver adjusts it with increment/decrement.
+private struct PopoverResizeEdge: View {
+    let edge: HorizontalEdge
+    let width: CGFloat
+    let live: (CGFloat) -> Void
+    let commit: (CGFloat) -> Void
+    /// Pointer x (screen coordinates) and width when the drag began. Screen coordinates, because the
+    /// popover moves under the pointer while it grows.
+    @State private var start: (x: CGFloat, width: CGFloat)?
+
+    var body: some View {
+        Color.clear
+            .frame(width: 6)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .pointerStyle(.columnResize)
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in
+                        let x = NSEvent.mouseLocation.x
+                        if start == nil {
+                            start = (x, width)
+                            NotificationCenter.default.post(name: .pickupPopoverResizing, object: true)
+                        }
+                        guard let origin = start else { return }
+                        live(PopoverWidth.resized(from: origin.width, outwardDelta: (x - origin.x) * (edge == .trailing ? 1 : -1)))
+                    }
+                    .onEnded { _ in
+                        start = nil
+                        commit(width)
+                        NotificationCenter.default.post(name: .pickupPopoverResizing, object: false)
+                    })
+            .accessibilityElement()
+            .accessibilityLabel(Text("Window width", comment: "VoiceOver label of the invisible handle at the side of the popover that changes its width."))
+            .accessibilityValue(Text(verbatim: "\(Int(width))"))
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: commit(PopoverWidth.clamped(width + PopoverWidth.accessibilityStep))
+                case .decrement: commit(PopoverWidth.clamped(width - PopoverWidth.accessibilityStep))
+                @unknown default: break
+                }
+            }
+            .accessibilityHidden(edge == .leading)   // one handle is enough for VoiceOver
+    }
+}
+
 /// Status on the left, one round Liquid Glass button with the app menu on the right.
 private struct BottomBar: View {
     let status: ConnectionStatus
+    /// Phone battery level 0...5, shown after the status text; nil hides it.
+    let battery: Int?
     let openSettings: () -> Void
     let showAbout: () -> Void
     @State private var anchor = AnchorView.Holder()
@@ -40,6 +109,9 @@ private struct BottomBar: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
+            if let battery {
+                BatteryGauge(level: battery)
+            }
             Spacer(minLength: 8)
             GlassEffectContainer {
                 Button {
@@ -84,6 +156,41 @@ private struct BottomBar: View {
         case .disconnected(let name):
             String(localized: "Not connected to \(name)", comment: "Menu status line when the Bluetooth link is down. %@ is the phone name.")
         }
+    }
+}
+
+/// The phone's battery: an outlined battery filled in system green up to the level, and the percentage.
+private struct BatteryGauge: View {
+    let level: Int
+
+    var body: some View {
+        let text = PhoneBattery.percentText(level: level)
+        HStack(spacing: 2) {
+            HStack(spacing: 1) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .strokeBorder(Color.secondary, lineWidth: 1)
+                    .overlay(alignment: .leading) {
+                        GeometryReader { proxy in
+                            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                                .fill(Color(nsColor: .systemGreen))
+                                .frame(width: max(0, (proxy.size.width - 4) * PhoneBattery.fraction(level: level)))
+                                .padding(2)
+                        }
+                    }
+                    .frame(width: 22, height: 11)
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Color.secondary)
+                    .frame(width: 1.5, height: 4)
+            }
+            Text(verbatim: text)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Phone battery"))
+        .accessibilityValue(Text(verbatim: text))
+        .accessibilityIdentifier("phone-battery")
     }
 }
 

@@ -46,6 +46,17 @@ final class AppModel {
     private(set) var notice: String?
     private(set) var selectedAddress: String?
     private(set) var selectedName: String?
+    /// Recent calls for the dialer: the phone's call lists, or the calls seen since launch.
+    private(set) var callHistory = CallHistory()
+    /// A call was missed since the user last looked at the recent calls: red dot on the menu bar icon.
+    /// Saved, so the dot survives a relaunch.
+    private(set) var hasUnseenMissedCalls = false
+    /// The phone's battery level, 0...5 (HFP `battchg`); nil when not connected or not reported.
+    private(set) var phoneBattery: Int?
+    /// Where the battery is shown (Settings).
+    var batteryDisplay: BatteryDisplay = .popover {
+        didSet { if !TestMode.isActive { UserDefaults.standard.set(batteryDisplay.rawValue, forKey: BatteryDisplay.defaultsKey) } }
+    }
 
     let callUI = CallUIModel()
     let contacts = ContactsDirectory()
@@ -61,6 +72,7 @@ final class AppModel {
 
     static let addressKey = "phoneAddress"
     static let nameKey = "phoneName"
+    static let unseenMissedCallsKey = "unseenMissedCalls"
     /// Launch argument `-PickupDemo <incoming|call|remote|menu>`: static preview data, no Bluetooth.
     let isDemo = UserDefaults.standard.string(forKey: "PickupDemo") != nil
 
@@ -86,11 +98,15 @@ final class AppModel {
         let defaults = UserDefaults.standard
         selectedAddress = defaults.string(forKey: Self.addressKey)
         selectedName = defaults.string(forKey: Self.nameKey)
+        hasUnseenMissedCalls = defaults.bool(forKey: Self.unseenMissedCallsKey)
+        batteryDisplay = defaults.string(forKey: BatteryDisplay.defaultsKey).flatMap(BatteryDisplay.init) ?? .popover
     }
 
     // MARK: Lifecycle
 
-    func start() {
+    /// `askForPermissions`: ask for Contacts and notifications shortly after launch (false while the
+    /// welcome window offers them).
+    func start(askForPermissions: Bool = true) {
         _ = panels
         if !TestMode.isActive { MissedCallNotifier.shared.install() }
         contacts.reload()
@@ -110,7 +126,7 @@ final class AppModel {
         if TestMode.isActive { startTestScenario(); return }
         #endif
         if isDemo { apply(); return }
-        requestPermissionsAfterLaunch()
+        if askForPermissions { requestPermissionsAfterLaunch() }
         if let address = selectedAddress { makeEngine(address: address) } else { apply() }
     }
 
@@ -128,6 +144,9 @@ final class AppModel {
     }
 
     func reconnect() { engine?.reconnect() }
+
+    /// The dialer opened: read the phone's call lists again (throttled by the engine).
+    func refreshCallHistory() { engine?.refreshCallHistory() }
 
     /// App termination: release the transport cleanly.
     func shutdown() { teardown() }
@@ -200,6 +219,7 @@ final class AppModel {
         guard let engine else {
             set(\.connection, selectedAddress == nil ? .noPhone : .disconnected(phoneName: selectedName ?? fallbackPhoneName))
             set(\.callIsLive, false)
+            set(\.phoneBattery, isDemo ? 3 : nil)
             set(\.guidance, bluetoothDenied ? .bluetoothDenied : (selectedAddress == nil ? .choosePhone : linkHint))
             if !isDemo { setUI(incoming: nil, active: nil) }
             return
@@ -216,6 +236,8 @@ final class AppModel {
             engine.nextReconnectAttempt != nil ? .reconnecting(phoneName: phoneName) : .disconnected(phoneName: phoneName)
         }
         set(\.connection, status)
+        set(\.callHistory, engine.callHistory)
+        set(\.phoneBattery, link == .connected ? engine.phoneStatus.battery : nil)
         trackStuckLink(connected: link == .connected)
         set(\.guidance, bluetoothDenied ? .bluetoothDenied
             : (showCannotConnect && link != .connected ? .cannotConnect(phoneName: engine.deviceName ?? selectedName) : linkHint))
@@ -274,7 +296,9 @@ final class AppModel {
         ActiveCallInfo(
             party: party, phase: phase, startedAt: call.connectedAt, phoneName: phoneName,
             audioOnMac: engine.isAudioOnMacEnabled && engine.audioRoute == .mac, isMuted: false,
-            waiting: engine.waitingCall.map { self.party(for: $0.callerID) }, notice: notice)
+            waiting: engine.waitingCall.map { self.party(for: $0.callerID) },
+            held: engine.heldCall.map { self.party(for: $0.callerID) },
+            canHold: engine.supportsCallHold, holdPending: engine.isCallHoldPending, notice: notice)
     }
 
     private func party(for callerID: CallerID) -> CallParty {
@@ -346,7 +370,13 @@ final class AppModel {
                 guard let digit = DTMFDigit(digit) else { return }
                 self?.run { try $0.sendDTMF(digit) }
             },
-            moveToPhone: { [weak self] in self?.run { try $0.transferAudioToPhone() } })
+            moveToPhone: { [weak self] in self?.run { try $0.transferAudioToPhone() } },
+            toggleHold: { [weak self] in self?.run { try $0.toggleHold() } },
+            swapCalls: { [weak self] in self?.run { try $0.swapCalls() } },
+            acceptWaitingHolding: { [weak self] in self?.run { try $0.acceptWaitingCall(endingCurrent: false) } },
+            acceptWaitingEnding: { [weak self] in self?.run { try $0.acceptWaitingCall(endingCurrent: true) } },
+            rejectWaiting: { [weak self] in self?.run { try $0.rejectWaitingCall() } },
+            endHeld: { [weak self] in self?.run { try $0.endHeldCall() } })
     }
 
     /// End Call in the HUD: the button shows progress until the phone confirms (usually 1–2 s). If the
@@ -402,10 +432,27 @@ final class AppModel {
     // MARK: Missed calls
 
     private func callFinished(_ call: CallInfo) {
-        guard call.direction == .incoming, call.endReason == .missed else { return }
+        guard MissedCalls.isMissed(call) else { return }
+        setUnseenMissedCalls(true)
         let number = call.callerID.number
         let name = number.flatMap { contacts.match(for: $0)?.name }
-        MissedCallNotifier.shared.notifyMissed(name: name, number: number.map { PhoneNumberFormat.display($0) })
+        MissedCallNotifier.shared.notifyMissed(name: name, number: number)
+    }
+
+    /// The user opened the recent calls (the popover shows the missed calls then): the dot goes away.
+    func markMissedCallsSeen() { setUnseenMissedCalls(false) }
+
+    private func setUnseenMissedCalls(_ unseen: Bool) {
+        guard hasUnseenMissedCalls != unseen else { return }
+        hasUnseenMissedCalls = unseen
+        if !TestMode.isActive { UserDefaults.standard.set(unseen, forKey: Self.unseenMissedCallsKey) }
+    }
+
+    /// "Call Back" in a missed-call notification: an explicit user action, so it dials. A service code
+    /// from the phone is never dialed this way.
+    func callBack(_ number: String) {
+        guard let dialNumber = DialNumber(number), !dialNumber.isServiceCode else { return }
+        if let message = dial(dialNumber) { showNotice(message) }
     }
 
     // MARK: tel: / callto: links

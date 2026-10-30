@@ -51,6 +51,16 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         public var deviceAppearedDelay: TimeInterval = 2.5
         /// An SLC that still looks up after an unconfirmed disconnect must answer `AT+CLCC` within this.
         public var verifySLC: TimeInterval = 3
+        /// Longest wait for IOBluetooth's own follow-up commands after the SLC (`AT+VGS`, `AT+VGM`)
+        /// before a call list is read anyway. Interleaving ours with them crashed IOBluetooth on
+        /// 2026-10-29 (see `readCallHistory`); usually they are sent and answered much sooner.
+        public var historyQuietPeriod: TimeInterval = 10
+        /// How often a waiting call list read checks again whether the link is idle.
+        public var historyRetry: TimeInterval = 0.5
+        /// A call list command the phone does not answer within this is given up, with the lists still
+        /// queued (seen on 2026-10-30: the command was never written after a failed write of
+        /// IOBluetooth's own `AT+VGM`, and the read waited forever).
+        public var historyCommand: TimeInterval = 8
         public init() {}
     }
 
@@ -135,6 +145,21 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     private var incomingSanitizer = ATLogSanitizer()
     private let outgoingTapInstalled: Bool
     private var fallbackCalls: [HFPCall] = []
+    /// Call lists still to be read, in request order.
+    private var historyQueue: [(list: CallHistoryList, count: Int)] = []
+    /// The call list read in progress: the phonebook is being selected, then read.
+    private var historyStep: (list: CallHistoryList, count: Int, reading: Bool)?
+    /// When the current SLC came up; call list reads wait `timeouts.historyQuietPeriod` after it.
+    private var slcEstablishedAt: Date?
+    /// IOBluetooth's follow-up commands of the current SLC seen on the wire (they may go out even
+    /// before the SLC counts as up). Once both went out and were answered, call lists may be read.
+    private var slcFollowUpsSent: Set<String> = []
+    private static let slcFollowUps: Set<String> = ["AT+VGS", "AT+VGM"]
+    private var historyRetryTask: ScheduledTask?
+    /// Gives up the current call list command if the phone never answers it.
+    private var historyTimeoutTask: ScheduledTask?
+    /// When the first queued list started waiting for an idle link; the wait is bounded (see `sendNextHistoryCommand`).
+    private var historyWaitingSince: Date?
     private var fallbackFlush: ScheduledTask?
     private var connectObserver: AnyObject?
 
@@ -251,6 +276,10 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         verifyTimer = nil
         deviceAppearedTask = nil
         fallbackFlush = nil
+        historyRetryTask?.cancel()
+        historyRetryTask = nil
+        historyTimeoutTask?.cancel()
+        historyTimeoutTask = nil
         connectObserver = nil
         // The registry parks the object (closes its link, keeps it alive and listening) and
         // remembers a disconnect in flight for the next owner.
@@ -294,6 +323,113 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
             }
             link.currentCallList()
         }
+    }
+
+    public func readCallHistory(_ list: CallHistoryList, count: Int) throws {
+        guard !isInvalidated else { throw TransportError.invalidated }
+        // Without the write hook, the phone's answers cannot be matched to the commands.
+        guard outgoingTapInstalled else { throw TransportError.unsupported }
+        guard linkState == .connected, link != nil else { throw TransportError.notConnected }
+        if historyQueue.isEmpty && historyStep == nil { historyWaitingSince = scheduler.now }
+        historyQueue.append((list, max(1, count)))
+        sendNextHistoryCommand()
+    }
+
+    /// Starts the next queued call list read: `AT+CPBS="<list>"`, then `AT+CPBR=1,<count>` once the
+    /// phone selected it (see `historyExchangeEnded`).
+    ///
+    /// Crash of 2026-10-29 (SIGSEGV in `-[IOBluetoothHandsFreeDevice processResultCode:]`): the read
+    /// started 2 s after the SLC, while IOBluetooth's own `AT+VGS`/`AT+VGM` were still due; they went
+    /// out 6 s late and IOBluetooth crashed on the next incoming data. Reads that started after those
+    /// commands never failed. So a read starts only after the quiet period and when no command is
+    /// waiting for its reply.
+    private func sendNextHistoryCommand() {
+        guard historyStep == nil, !historyQueue.isEmpty, historyRetryTask == nil else { return }
+        let followUpsDone = slcFollowUpsSent.isSuperset(of: Self.slcFollowUps)
+        let quietUntil = followUpsDone ? scheduler.now
+            : slcEstablishedAt.map { $0.addingTimeInterval(timeouts.historyQuietPeriod) } ?? scheduler.now
+        if scheduler.now < quietUntil || tracker.pendingCount > 0 {
+            // A command that never gets an answer keeps the link from looking idle: give up the queued lists
+            // after the quiet period plus one command time, instead of waiting forever (IOBluetooth's safety
+            // gate is never bypassed).
+            if let since = historyWaitingSince,
+               scheduler.now.timeIntervalSince(since) >= timeouts.historyQuietPeriod + timeouts.historyCommand {
+                log.log(.warning, "link never became idle for the call list read; giving up")
+                historyUnanswered()
+                return
+            }
+            // Check again soon: the follow-ups may be answered long before the quiet period ends.
+            let delay = timeouts.historyRetry
+            historyRetryTask = scheduler.schedule(after: delay) { [weak self] in
+                guard let self else { return }
+                self.historyRetryTask = nil
+                guard self.linkState == .connected else { return }
+                self.sendNextHistoryCommand()
+            }
+            return
+        }
+        let next = historyQueue.removeFirst()
+        historyWaitingSince = nil
+        historyStep = (next.list, next.count, false)
+        sendHistoryCommand("AT+CPBS=\"\(next.list.rawValue)\"")
+    }
+
+    private func sendHistoryCommand(_ line: String) {
+        historyTimeoutTask?.cancel()
+        historyTimeoutTask = scheduler.schedule(after: timeouts.historyCommand) { [weak self] in
+            self?.historyTimedOut()
+        }
+        do {
+            try issue("sendATCommand(\(line))") { $0.sendATCommand(line) }
+        } catch {
+            historyExchangeEnded(nil)
+        }
+    }
+
+    /// No answer: this list and the queued ones are reported as not answered (not as refused), so
+    /// the engine asks again later. The link is evidently not taking commands now.
+    private func historyTimedOut() {
+        historyTimeoutTask = nil
+        guard let step = historyStep else { return }
+        log.log(.warning, "no answer to the call list read (\(step.list.rawValue)) within \(timeouts.historyCommand) s; giving up")
+        historyUnanswered()
+    }
+
+    /// The current and all queued lists got no answer (timeout, discarded or not sent). Not a refusal:
+    /// that needs an explicit error from the phone.
+    private func historyUnanswered() {
+        historyTimeoutTask?.cancel()
+        historyTimeoutTask = nil
+        historyRetryTask?.cancel()
+        historyRetryTask = nil
+        let lists = (historyStep.map { [$0.list] } ?? []) + historyQueue.map(\.list)
+        historyStep = nil
+        historyQueue.removeAll()
+        historyWaitingSince = nil
+        for list in lists { emit(.callHistoryUnanswered(list)) }
+    }
+
+    /// The phone answered the current call list command (nil = discarded or not sent: unanswered).
+    private func historyExchangeEnded(_ exchange: ATExchange?) {
+        guard let step = historyStep else { return }
+        guard let exchange else {
+            historyUnanswered()
+            return
+        }
+        // A late answer to an earlier, given-up command does not belong to this step.
+        if exchange.command != (step.reading ? .readPhonebook : .selectPhonebook) { return }
+        historyTimeoutTask?.cancel()
+        historyTimeoutTask = nil
+        if exchange.result.isSuccess, !step.reading {
+            historyStep = (step.list, step.count, true)
+            sendHistoryCommand("AT+CPBR=1,\(step.count)")
+            return
+        }
+        historyStep = nil
+        // An explicit error is a refusal (no access to the call history); success carries the entries.
+        let entries = exchange.result.isSuccess ? exchange.responses.compactMap(ATParser.parseCPBR) : nil
+        emit(.callHistory(step.list, entries))
+        sendNextHistoryCommand()
     }
 
     /// Checks the link now and runs the command on it, deferred to the next main-queue turn if an
@@ -552,6 +688,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         default:
             break
         }
+        slcEstablishedAt = scheduler.now
         setLinkState(.connected)
         unconfirmedDisconnects = 0
         setLinkSetupBlocked(false)
@@ -571,6 +708,12 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     /// IOBluetooth sent `AT+BRSF` (always the first SLC command) on our link while the transport is
     /// disconnected: the phone reconnected on its own and IOBluetooth runs the SLC set-up. Follow
     /// it instead of starting a second one.
+    private func noteSLCFollowUp(_ line: String) {
+        let command = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if command.hasPrefix("AT+BRSF") { slcFollowUpsSent = [] }   // a new SLC set-up begins
+        if let name = Self.slcFollowUps.first(where: { command.hasPrefix($0 + "=") }) { slcFollowUpsSent.insert(name) }
+    }
+
     private func noteSLCStart(_ line: String) {
         guard linkState == .disconnected, !isInvalidated,
               line.trimmingCharacters(in: .whitespaces).uppercased().hasPrefix("AT+BRSF") else { return }
@@ -616,6 +759,14 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         }
         if state != .connected {
             tracker.reset()
+            historyQueue.removeAll()
+            historyStep = nil
+            historyRetryTask?.cancel()
+            historyRetryTask = nil
+            historyTimeoutTask?.cancel()
+            historyTimeoutTask = nil
+            slcEstablishedAt = nil
+            slcFollowUpsSent = []
         }
         emit(.linkStateChanged(state))
     }
@@ -675,6 +826,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         // Runs inside IOBluetooth's write (inside its command queue): defer any command.
         inCallback {
             noteSLCStart(line)
+            noteSLCFollowUp(line)
             handle(tracker.outgoing(line, at: scheduler.now))
         }
     }
@@ -702,6 +854,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
                 break // Indicators, RING and +CLIP arrive through the delegate.
             case .discarded(let command):
                 log.log(.warning, "no reply to \(command); dropped from the command queue")
+                if command == .selectPhonebook || command == .readPhonebook { historyExchangeEnded(nil) }
             case .completed(let exchange):
                 if isVerifyingSLC, exchange.command == .currentCalls, let link {
                     log.log(.state, "[\(linkTag)] SLC answered AT+CLCC (\(exchange.result)); adopting it")
@@ -711,6 +864,9 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
                     emit(.currentCalls(exchange.currentCalls))
                 }
                 emit(.commandCompleted(exchange.command, exchange.result))
+                if exchange.command == .selectPhonebook || exchange.command == .readPhonebook {
+                    historyExchangeEnded(exchange)
+                }
             }
         }
     }
@@ -729,7 +885,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     /// to an SLC nobody wants (e.g. one completing during a disconnect).
     private func emit(_ event: TransportEvent) {
         switch event {
-        case .indicator, .ring, .callerID, .callWaiting, .currentCalls, .commandCompleted:
+        case .indicator, .ring, .callerID, .callWaiting, .currentCalls, .commandCompleted, .callHistory, .callHistoryUnanswered:
             guard linkState == .connecting || linkState == .connected else {
                 log.log(.state, "dropped \(event) while \(linkState.rawValue) [\(linkTag)]")
                 return
@@ -738,6 +894,29 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
             break
         }
         eventHandler?(event)
+    }
+}
+
+// MARK: - Three-way calling
+
+extension AppleHFPTransport {
+    /// `+BRSF` bit 0 (three-way calling) and `+CHLD` modes 0, 1 and 2 (IOBluetooth's bitmap: bit 0 = "0",
+    /// bit 1 = "1", bit 3 = "2"; see `HFPFeatures.callHoldModes`).
+    public var supportsCallHold: Bool {
+        // Without the write hook the phone's OK cannot be matched to AT+CHLD (as for the call list reads).
+        guard outgoingTapInstalled, let link, linkState == .connected else { return false }
+        return Self.supportsCallHold(features: link.audioGatewayFeatures, holdModes: link.callHoldModes)
+    }
+
+    nonisolated static func supportsCallHold(features: UInt32, holdModes: UInt32) -> Bool {
+        let required: UInt32 = 0b1011
+        return features & 1 != 0 && holdModes & required == required
+    }
+
+    public func callHold(_ action: CallHoldAction) throws {
+        guard supportsCallHold else { throw TransportError.unsupported }
+        let line = "AT+CHLD=\(action.rawValue)"
+        try issue("sendATCommand(\(line))") { $0.sendATCommand(line) }
     }
 }
 

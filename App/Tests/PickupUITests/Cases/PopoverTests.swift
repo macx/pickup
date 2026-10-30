@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 /// Popover, search, keypad, keyboard handling and window shortcuts (docs/TESTING.md, section 4).
@@ -32,6 +33,84 @@ final class PopoverTests: PickupUITestCase {
         keyboard.press(Key.returnKey)
         XCTAssertTrue(waitExists("call-hud"))
         XCTAssertNotNil(appLog.range(of: #"dial .*123"#, options: .regularExpression))
+    }
+
+    func testRecentCallsAreReachedWithTabAndCalledWithReturn() throws {
+        try launch("outgoing-answered")
+        openPopover()
+        XCTAssertTrue(waitExists("recent-row-DC-2"), "the phone's dialed calls show while the field is empty")
+        XCTAssertFalse(element("recent-row-DC-0").isSelected, "no row starts selected: a stray Return never redials")
+        XCTAssertTrue(exists("recent-row-DC-0-call"), "every row has its own call button")
+
+        // ↓ from the search field selects the first row, like in the search results.
+        keyboard.press(Key.down)
+        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-0").isSelected }, "Down selects the first row")
+        keyboard.press(Key.down)
+        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-1").isSelected })
+
+        // ⌘C copies the selected number (the pasteboard is restored afterwards).
+        let pasteboard = NSPasteboard.general
+        let saved = pasteboard.string(forType: .string)
+        defer { pasteboard.clearContents(); if let saved { pasteboard.setString(saved, forType: .string) } }
+        pasteboard.clearContents()
+        keyboard.press(Key.c, flags: .maskCommand)
+        XCTAssertTrue(Wait.until(3) { pasteboard.string(forType: .string)?.contains("0000") == true },
+                      "Command-C copies the selected row's number")
+
+        keyboard.press(Key.escape)
+        XCTAssertTrue(Wait.until(3) { !self.element("recent-row-DC-1").isSelected }, "Esc returns to the search field")
+        XCTAssertTrue(exists("popover-root"), "…and keeps the popover open")
+
+        // Tab follows the system order: field → tabs → list (which selects its first row).
+        keyboard.press(Key.tab)
+        XCTAssertFalse(element("recent-row-DC-0").isSelected, "the first Tab stops at the tabs")
+        keyboard.press(Key.tab)
+        XCTAssertTrue(Wait.until(3) { self.element("recent-row-DC-0").isSelected }, "the second Tab enters the list")
+        // Tabs: Outgoing (DC) → Incoming (RC) → Missed (MC).
+        keyboard.press(Key.right)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-RC-0") && self.element("recent-row-RC-0").isSelected },
+                      "Right switches to the next tab and keeps the keyboard in the list")
+        keyboard.press(Key.right)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-MC-0") && self.element("recent-row-MC-0").isSelected })
+        keyboard.press(Key.left)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-RC-0") && self.element("recent-row-RC-0").isSelected })
+        keyboard.press(Key.left)
+        XCTAssertTrue(Wait.until(3) { self.exists("recent-row-DC-0") && self.element("recent-row-DC-0").isSelected })
+        XCTAssertFalse(appLog.contains("-> dial()"), "moving through the list never dials")
+
+        keyboard.press(Key.returnKey)
+        XCTAssertTrue(waitExists("call-hud"), "Return calls the selected recent call")
+        XCTAssertNotNil(appLog.range(of: #"dial .*123"#, options: .regularExpression), "Jane's number was dialed:\n\(appLog)")
+    }
+
+    /// Neither the popover nor the top bar may move when the keypad replaces the recent calls, in
+    /// English and in German (the native segmented control used to widen the content in German).
+    func testTogglingTheKeypadKeepsTheLayoutSteady() throws {
+        for language in ["en", "de"] {
+            try launch("idle", language: language)
+            openPopover()
+            XCTAssertTrue(waitExists("recent-row-DC-0"))
+            guard let before = stableFrame("popover-root"), let field = stableFrame("search-field"),
+                  let tabs = stableFrame("recent-tabs") else { return XCTFail("[\(language)] no frames") }
+            XCTAssertEqual(tabs.minX, before.minX + 16, accuracy: 1, "[\(language)] tabs start at the content margin")
+            XCTAssertEqual(tabs.maxX, before.maxX - 16, accuracy: 1, "[\(language)] tabs end at the content margin")
+            XCTAssertTrue(element("keypad-toggle").press())
+            XCTAssertTrue(waitExists("key-5"))
+            guard let keypad = stableFrame("popover-root"), let keypadField = stableFrame("search-field") else {
+                return XCTFail("[\(language)] no frames")
+            }
+            XCTAssertEqual(keypad.height, before.height, accuracy: 1, "[\(language)] the keypad takes the recent calls' place")
+            XCTAssertEqual(keypadField.minX, field.minX, accuracy: 0.5, "[\(language)] the search field does not move")
+            XCTAssertEqual(keypadField.width, field.width, accuracy: 0.5, "[\(language)] the search field keeps its width")
+            XCTAssertTrue(element("keypad-toggle").press())
+            XCTAssertTrue(waitExists("recent-row-DC-0"))
+            guard let after = stableFrame("popover-root"), let afterField = stableFrame("search-field") else {
+                return XCTFail("[\(language)] no frames")
+            }
+            XCTAssertEqual(after.height, before.height, accuracy: 1)
+            XCTAssertEqual(afterField.minX, field.minX, accuracy: 0.5)
+            terminateApp()
+        }
     }
 
     func testTypingDigitsOpensTheKeypad() throws {

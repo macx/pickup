@@ -138,7 +138,8 @@ tsan_root()    { swift test --sanitize=thread --scratch-path .build/verify-tsan;
 security()     { if [ "$STRICT" = 1 ]; then scripts/security-checks.sh --strict; else scripts/security-checks.sh; fi; }
 
 lint() {
-  if [ "$STRICT" = 1 ]; then swiftlint lint --config .swiftlint.yml --quiet --strict; else swiftlint lint --config .swiftlint.yml --quiet; fi
+  # Always --strict, like CI: a warning that passes here but fails the pull request helps nobody.
+  swiftlint lint --config .swiftlint.yml --quiet --strict
 }
 
 # UI tests: the XCUITest target does not exist yet (round 2). Detected by its directory.

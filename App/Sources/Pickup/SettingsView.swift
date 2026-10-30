@@ -32,6 +32,16 @@ struct SettingsView: View {
                     .disabled(true)
                     .accessibilityIdentifier("settings-take-calls")
                     .help(Text("Not available yet. For now, Pickup controls your calls from the Mac while the conversation stays on your phone."))
+                Picker("Phone battery", selection: Binding(get: { model.batteryDisplay }, set: { model.batteryDisplay = $0 })) {
+                    Text("In the menu window", comment: "Settings option for the phone's battery: gauge and percentage in the popover's status line.")
+                        .tag(BatteryDisplay.popover)
+                    Text("In the menu bar", comment: "Settings option for the phone's battery: percentage next to Pickup's menu bar icon.")
+                        .tag(BatteryDisplay.menuBar)
+                    Text("Don’t show", comment: "Settings option for the phone's battery: hidden.")
+                        .tag(BatteryDisplay.off)
+                }
+                .accessibilityIdentifier("settings-battery")
+                .help(Text("Your phone reports its charge in steps of 20 percent.", comment: "Tooltip of the phone battery setting."))
                 LabeledContent("Global shortcut") { ShortcutRecorder() }
                     .help(Text("Opens Pickup's menu bar window from anywhere. Press it again to close it."))
                 ShortcutHint()

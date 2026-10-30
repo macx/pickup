@@ -23,7 +23,8 @@ final class LayoutAccessibilityTests: PickupUITestCase {
             openSettings()
             let window = element("settings-window")
             let frame = try XCTUnwrap(stableFrame("settings-window"), "[\(language)] no window frame")
-            XCTAssertLessThanOrEqual(frame.height, 385, "[\(language)] Settings is \(frame.height) pt high")
+            // 405: the phone battery row (2026-10-30) added one row to the former 385.
+            XCTAssertLessThanOrEqual(frame.height, 405, "[\(language)] Settings is \(frame.height) pt high")
             let ids = Array(Set(settingsIdentifiers())).sorted()
             XCTAssertGreaterThanOrEqual(ids.count, 4, "[\(language)] only found \(ids)")
             assertControlsHaveLabels(in: window)

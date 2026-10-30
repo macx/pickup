@@ -8,8 +8,11 @@ import SwiftUI
 final class StatusItemController: NSObject, NSPopoverDelegate {
     private let model: AppModel
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    /// Red dot on the icon for missed calls the user has not looked at yet.
+    private let missedDot = StatusBadgeDot()
     private let popover = NSPopover()
     private var settingsWindow: NSWindow?
+    private var welcomeWindow: NSWindow?
     private var keyMonitor: Any?
     private var shortcutMonitor: Any?
     /// App that was frontmost before the popover activated Pickup; reactivated on close.
@@ -38,6 +41,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if UserDefaults.standard.bool(forKey: "PickupOpenPopover") { popover.behavior = .applicationDefined }
         popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         popover.delegate = self
+        // While an edge is dragged the popover follows the pointer without its resize animation.
+        NotificationCenter.default.addObserver(forName: .pickupPopoverResizing, object: nil, queue: .main) { [weak self] note in
+            let resizing = note.object as? Bool ?? false
+            MainActor.assumeIsolated {
+                self?.popover.animates = !resizing && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            }
+        }
         trackIcon()
         installShortcutMonitor()
         // Global shortcut (Settings): toggles the popover from anywhere.
@@ -49,15 +59,57 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     // MARK: Icon
 
-    /// Re-reads the connection state whenever it changes: filled handset with call arcs = connected, outlined
-    /// handset = disconnected (docs/ICON.md).
+    /// Re-reads the state whenever it changes: filled handset with call arcs = connected, outlined
+    /// handset = disconnected (docs/ICON.md); a red dot for unseen missed calls; the phone's battery
+    /// percentage next to the icon when chosen in Settings.
     private func trackIcon() {
         withObservationTracking {
             let connected = model.connection.isConnected || model.isDemo
-            statusItem.button?.image = Self.menuBarImage(connected: connected)
+            let battery = model.batteryDisplay == .menuBar ? model.phoneBattery : nil
+            updateIcon(connected: connected, battery: battery, missed: model.hasUnseenMissedCalls)
         } onChange: { [weak self] in
             Task { @MainActor in self?.trackIcon() }
         }
+    }
+
+    private func updateIcon(connected: Bool, battery: Int?, missed: Bool) {
+        guard let button = statusItem.button else { return }
+        let icon = Self.menuBarImage(connected: connected)
+        if let battery, let icon {
+            // One template image (handset + percentage): NSButton's own image-title gap is too wide.
+            button.image = Self.withPercentage(icon, PhoneBattery.percentText(level: battery))
+            statusItem.length = NSStatusItem.variableLength
+        } else {
+            button.image = icon
+            statusItem.length = NSStatusItem.squareLength
+        }
+        button.title = ""
+        button.imagePosition = .imageOnly
+        let name = String(localized: "Pickup", comment: "Accessibility label of the menu bar icon. The app name.")
+        var label = missed
+            ? String(localized: "\(name), missed calls", comment: "Accessibility label of the menu bar icon while it shows the red dot for missed calls. %@ is the app name.")
+            : name
+        if let battery {
+            label = String(localized: "\(label), phone battery \(PhoneBattery.percentText(level: battery))",
+                           comment: "Accessibility label of the menu bar icon with the phone's battery next to it. First %@ is the app name (maybe with \"missed calls\"), second the percentage, e.g. \"60 %\".")
+        }
+        button.setAccessibilityLabel(label)
+        if missedDot.superview !== button { button.addSubview(missedDot) }
+        missedDot.isHidden = !missed
+        button.layoutSubtreeIfNeeded()
+        positionMissedDot()
+    }
+
+    /// At the top right of the handset, also when the percentage widens the image.
+    private func positionMissedDot() {
+        guard let button = statusItem.button else { return }
+        let image = (button.cell as? NSButtonCell)?.imageRect(forBounds: button.bounds)
+            ?? NSRect(x: (button.bounds.width - 18) / 2, y: (button.bounds.height - 18) / 2, width: 18, height: 18)
+        // The handset is the image's left 18 pt (the percentage, if shown, follows it).
+        let handset = NSRect(x: image.minX, y: image.midY - 9, width: 18, height: 18)
+        let size = StatusBadgeDot.diameter
+        let y = button.isFlipped ? handset.minY - 1 : handset.maxY - size + 1
+        missedDot.frame = NSRect(x: handset.maxX - size + 1, y: y, width: size, height: size)
     }
 
     /// The template PDFs from App/Resources/MenuBar (copied into the bundle by scripts/build-app.sh). Outside the
@@ -70,6 +122,25 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         image.size = NSSize(width: 18, height: 18)
         image.isTemplate = true                 // black + alpha; the menu bar tints it for light, dark and selected
+        return image
+    }
+
+    /// Gap between the handset and the battery percentage in the menu bar.
+    private static let percentageGap: CGFloat = 3
+
+    /// The handset with the percentage to its right, drawn as one template image so the menu bar
+    /// tints both for light, dark and selected.
+    private static func withPercentage(_ icon: NSImage, _ text: String) -> NSImage {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize - 2, weight: .regular)
+        let string = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+        let textSize = string.size()
+        let size = NSSize(width: ceil(icon.size.width + percentageGap + textSize.width), height: max(icon.size.height, ceil(textSize.height)))
+        let image = NSImage(size: size, flipped: false) { _ in
+            icon.draw(in: NSRect(x: 0, y: (size.height - icon.size.height) / 2, width: icon.size.width, height: icon.size.height))
+            string.draw(at: NSPoint(x: icon.size.width + percentageGap, y: (size.height - textSize.height) / 2))
+            return true
+        }
+        image.isTemplate = true
         return image
     }
 
@@ -147,18 +218,35 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-            guard let self, event.window === self.popover.contentViewController?.view.window,
-                  event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
+            guard let self, event.window === self.popover.contentViewController?.view.window else { return event }
             let router = DialerKeyRouter.shared
+            // ⌘1 / ⌘2 / ⌘3: recent calls tabs.
+            if event.type == .keyDown, event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+               let digit = event.charactersIgnoringModifiers.flatMap(Int.init), (1...3).contains(digit) {
+                return (router.selectTab?(digit - 1) ?? false) ? nil : event
+            }
+            // ⌘C on a selected row copies its number (otherwise the normal copy).
+            if event.type == .keyDown, event.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+               event.charactersIgnoringModifiers?.lowercased() == "c" {
+                return (router.copy?() ?? false) ? nil : event
+            }
+            guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
             // Physical dial keys (main row and numpad) light up the on-screen key; typing is untouched.
-            if let key = event.characters, key.count == 1, "0123456789*#".contains(key) {
+            let isDialKey = event.characters.map { $0.count == 1 && "0123456789*#".contains($0) } ?? false
+            if isDialKey, let key = event.characters {
                 router.physicalKey?(key, event.type == .keyDown)
-                return event
             }
             guard event.type == .keyDown else { return event }
+            // Typing while the tabs or the list have focus goes on in the search field.
+            if let characters = event.characters, router.typeText?(characters) == true { return nil }
+            if isDialKey { return event }
             switch event.keyCode {
             case 126: return (router.move?(-1) ?? false) ? nil : event   // up
             case 125: return (router.move?(1) ?? false) ? nil : event    // down
+            case 123: return (router.switchTab?(-1) ?? false) ? nil : event  // left: previous recent calls tab
+            case 124: return (router.switchTab?(1) ?? false) ? nil : event   // right: next tab
+            case 36, 76:                                                  // return / enter: call the selected row
+                return (router.submit?() ?? false) ? nil : event
             case 53:                                                      // esc
                 if router.escape?() == true { return nil }
                 self.closePopover()
@@ -207,6 +295,39 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         settingsWindow?.orderFrontRegardless()
     }
 
+    /// The welcome window (first launch, or an unsigned update). Marked as shown right away, so it
+    /// does not come back at the next launch even if the user quits instead of clicking Done.
+    func showWelcome(_ reason: WelcomePolicy.Reason) {
+        WelcomePolicy.markShown()
+        keepActiveOnClose = true
+        closePopover()
+        if welcomeWindow == nil {
+            let view = WelcomeView(reason: reason, model: model,
+                                   openSettings: { [weak self] in self?.openSettings() },
+                                   close: { [weak self] in self?.welcomeWindow?.close() })
+            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            window.title = String(localized: "Welcome to Pickup")
+            window.identifier = NSUserInterfaceItemIdentifier("welcome-window")
+            window.styleMask = [.titled, .closable]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden   // the header shows it; VoiceOver still gets the title
+            window.isReleasedWhenClosed = false
+            welcomeWindow = window
+        }
+        // Centred once SwiftUI has sized the content (centring the empty window put it in a corner).
+        if let window = welcomeWindow, let content = window.contentViewController?.view {
+            content.layoutSubtreeIfNeeded()
+            window.setContentSize(content.fittingSize)
+            if let screen = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame {
+                window.setFrameOrigin(NSPoint(x: (screen.midX - window.frame.width / 2).rounded(),
+                                              y: (screen.midY - window.frame.height / 2).rounded()))
+            }
+        }
+        NSApp.activate()
+        welcomeWindow?.makeKeyAndOrderFront(nil)
+        welcomeWindow?.orderFrontRegardless()
+    }
+
     func showAbout() {
         keepActiveOnClose = true
         closePopover()
@@ -223,15 +344,56 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                            comment: "One-line description in the About panel."),
             attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
                          .foregroundColor: NSColor.secondaryLabelColor])
-        if let string = AppInfo.repositoryURL, let url = URL(string: string) {
+        // Links open in the default browser; Pickup itself never goes online.
+        let links: [(String?, String?)] = [
+            (AppInfo.repositoryURL, String(localized: "Source code on GitHub", comment: "Link text in the About panel.")),
+            (AppInfo.websiteURL, nil),   // shown as its domain
+        ]
+        let shown = links.compactMap { string, text -> (URL, String)? in
+            guard let string, let url = URL(string: string), let title = text ?? url.host() else { return nil }
+            return (url, title)
+        }
+        for (index, (url, title)) in shown.enumerated() {
+            // Centred like the rest of the panel; the links get room above the first and below the last.
+            let style = NSMutableParagraphStyle()
+            style.alignment = .center
+            style.paragraphSpacingBefore = index == 0 ? 10 : 2
+            style.paragraphSpacing = index == shown.count - 1 ? 10 : 0
             credits.append(NSAttributedString(string: "\n"))
-            credits.append(NSAttributedString(
-                string: String(localized: "Source code on GitHub", comment: "Link text in the About panel."),
-                attributes: [.link: url, .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]))
+            credits.append(NSAttributedString(string: title, attributes: [
+                .link: url, .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize), .paragraphStyle: style,
+            ]))
+        }
+        let centered = NSMutableParagraphStyle()
+        centered.alignment = .center
+        credits.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: credits.length)) { value, range, _ in
+            if value == nil { credits.addAttribute(.paragraphStyle, value: centered, range: range) }
         }
         options[.credits] = credits
         NSApp.orderFrontStandardAboutPanel(options: options)
     }
+}
+
+/// The missed-call dot: system red, follows light/dark mode and accent changes.
+private final class StatusBadgeDot: NSView {
+    static let diameter: CGFloat = 7
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        setAccessibilityElement(false)   // the button's label says "missed calls"
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.systemRed.cgColor
+        layer?.cornerRadius = bounds.width / 2
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }   // clicks go to the button
 }
 
 extension Notification.Name {
@@ -239,6 +401,8 @@ extension Notification.Name {
     static let pickupPopoverDidShow = Notification.Name("PickupPopoverDidShow")
     /// Posted right before the popover opens; the dialer resets and focuses its search field.
     static let pickupPopoverWillShow = Notification.Name("PickupPopoverWillShow")
+    /// Posted when the user starts (`true`) and stops (`false`) dragging the popover's width.
+    static let pickupPopoverResizing = Notification.Name("PickupPopoverResizing")
 }
 
 /// Settings window that opens without a focused control. With keyboard navigation turned on, AppKit
