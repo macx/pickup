@@ -2934,6 +2934,60 @@
           }
         }
       }
+    },
+    "The contact could not be handed to your contacts app.": {
+      "comment": "Inline error when Pickup could not open the new contact card in the contacts app.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The contact could not be handed to your contacts app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kontakt konnte nicht an Ihre Kontakte-App übergeben werden."
+          }
+        }
+      }
+    },
+    "Add to %@…": {
+      "comment": "Context menu item of a recent call or typed number without a contact: opens the contacts app (e.g. Contacts or Cardhop) with a new contact. %@ is the app name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to %@…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu %@ hinzufügen …"
+          }
+        }
+      }
+    },
+    "Add to Contacts…": {
+      "comment": "Context menu item of a recent call or typed number without a contact, when the name of the contacts app is unknown.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Contacts…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu Kontakten hinzufügen …"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -542,6 +542,20 @@ struct DialerView: View {
             Text("Copy Number", comment: "Context menu item of a row in the popover's list: copies the phone number.")
         }
         .disabled(row.copyableNumber == nil)
+        if let card = row.newContact(contacts: model.contacts) {
+            Button {
+                if !ContactCard.open(name: card.name, number: card.number) {
+                    error = String(localized: "The contact could not be handed to your contacts app.",
+                                   comment: "Inline error when Pickup could not open the new contact card in the contacts app.")
+                }
+            } label: {
+                if let app = ContactCard.appName {
+                    Text("Add to \(app)…", comment: "Context menu item of a recent call or typed number without a contact: opens the contacts app (e.g. Contacts or Cardhop) with a new contact. %@ is the app name.")
+                } else {
+                    Text("Add to Contacts…", comment: "Context menu item of a recent call or typed number without a contact, when the name of the contacts app is unknown.")
+                }
+            }
+        }
     }
 
     // MARK: Recent calls
@@ -780,6 +794,22 @@ fileprivate extension DialerRow {
     var isRecent: Bool { if case .recent = kind { true } else { false } }
 
     var recentNumber: DialNumber? { if case .recent(_, let number, _) = kind { number } else { nil } }
+
+    /// Name and number for "Add to Contacts…": a recent call or typed number that matches no contact
+    /// on this Mac. nil for contacts and withheld callers.
+    @MainActor
+    func newContact(contacts: ContactsDirectory) -> (name: String?, number: String)? {
+        switch kind {
+        case .recent(let entry, _, _):
+            guard !entry.number.isEmpty, contacts.match(for: entry.number) == nil else { return nil }
+            return (entry.name, entry.number)
+        case .call(let number):
+            guard !number.isServiceCode, contacts.match(for: number.value) == nil else { return nil }
+            return (nil, number.value)
+        case .contact:
+            return nil
+        }
+    }
 
     @MainActor
     func display(contacts: ContactsDirectory) -> ResultRow.Display {
