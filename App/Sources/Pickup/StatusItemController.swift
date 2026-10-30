@@ -8,6 +8,8 @@ import SwiftUI
 final class StatusItemController: NSObject, NSPopoverDelegate {
     private let model: AppModel
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    /// Red dot on the icon for missed calls the user has not looked at yet.
+    private let missedDot = StatusBadgeDot()
     private let popover = NSPopover()
     private var settingsWindow: NSWindow?
     private var keyMonitor: Any?
@@ -56,15 +58,55 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     // MARK: Icon
 
-    /// Re-reads the connection state whenever it changes: filled handset with call arcs = connected, outlined
-    /// handset = disconnected (docs/ICON.md).
+    /// Re-reads the state whenever it changes: filled handset with call arcs = connected, outlined
+    /// handset = disconnected (docs/ICON.md); a red dot for unseen missed calls; the phone's battery
+    /// percentage next to the icon when chosen in Settings.
     private func trackIcon() {
         withObservationTracking {
             let connected = model.connection.isConnected || model.isDemo
-            statusItem.button?.image = Self.menuBarImage(connected: connected)
+            let battery = model.batteryDisplay == .menuBar ? model.phoneBattery : nil
+            updateIcon(connected: connected, battery: battery, missed: model.hasUnseenMissedCalls)
         } onChange: { [weak self] in
             Task { @MainActor in self?.trackIcon() }
         }
+    }
+
+    private func updateIcon(connected: Bool, battery: Int?, missed: Bool) {
+        guard let button = statusItem.button else { return }
+        button.image = Self.menuBarImage(connected: connected)
+        if let battery {
+            statusItem.length = NSStatusItem.variableLength
+            button.imagePosition = .imageLeading
+            button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
+            button.title = PhoneBattery.percentText(level: battery)
+        } else {
+            button.title = ""
+            button.imagePosition = .imageOnly
+            statusItem.length = NSStatusItem.squareLength
+        }
+        let name = String(localized: "Pickup", comment: "Accessibility label of the menu bar icon. The app name.")
+        var label = missed
+            ? String(localized: "\(name), missed calls", comment: "Accessibility label of the menu bar icon while it shows the red dot for missed calls. %@ is the app name.")
+            : name
+        if let battery {
+            label = String(localized: "\(label), phone battery \(PhoneBattery.percentText(level: battery))",
+                           comment: "Accessibility label of the menu bar icon with the phone's battery next to it. First %@ is the app name (maybe with \"missed calls\"), second the percentage, e.g. \"60 %\".")
+        }
+        button.setAccessibilityLabel(label)
+        if missedDot.superview !== button { button.addSubview(missedDot) }
+        missedDot.isHidden = !missed
+        button.layoutSubtreeIfNeeded()
+        positionMissedDot()
+    }
+
+    /// At the top right of the handset, also when the percentage widens the button.
+    private func positionMissedDot() {
+        guard let button = statusItem.button else { return }
+        let image = (button.cell as? NSButtonCell)?.imageRect(forBounds: button.bounds)
+            ?? NSRect(x: (button.bounds.width - 18) / 2, y: (button.bounds.height - 18) / 2, width: 18, height: 18)
+        let size = StatusBadgeDot.diameter
+        let y = button.isFlipped ? image.minY - 1 : image.maxY - size + 1
+        missedDot.frame = NSRect(x: image.maxX - size + 1, y: y, width: size, height: size)
     }
 
     /// The template PDFs from App/Resources/MenuBar (copied into the bundle by scripts/build-app.sh). Outside the
@@ -261,6 +303,28 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         options[.credits] = credits
         NSApp.orderFrontStandardAboutPanel(options: options)
     }
+}
+
+/// The missed-call dot: system red, follows light/dark mode and accent changes.
+private final class StatusBadgeDot: NSView {
+    static let diameter: CGFloat = 7
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        setAccessibilityElement(false)   // the button's label says "missed calls"
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.systemRed.cgColor
+        layer?.cornerRadius = bounds.width / 2
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }   // clicks go to the button
 }
 
 extension Notification.Name {

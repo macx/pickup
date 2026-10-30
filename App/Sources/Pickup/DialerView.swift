@@ -172,6 +172,10 @@ struct DialerView: View {
             error = nil
             selectedID = nil
             pendingConfirmationID = nil
+            if model.hasUnseenMissedCalls {
+                recentListRaw = CallHistoryList.missed.rawValue   // the red dot led here
+                model.markMissedCallsSeen()
+            }
             model.refreshCallHistory()
             focusFieldSoon()
         }

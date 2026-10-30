@@ -48,6 +48,15 @@ final class AppModel {
     private(set) var selectedName: String?
     /// Recent calls for the dialer: the phone's call lists, or the calls seen since launch.
     private(set) var callHistory = CallHistory()
+    /// A call was missed since the user last looked at the recent calls: red dot on the menu bar icon.
+    /// Saved, so the dot survives a relaunch.
+    private(set) var hasUnseenMissedCalls = false
+    /// The phone's battery level, 0...5 (HFP `battchg`); nil when not connected or not reported.
+    private(set) var phoneBattery: Int?
+    /// Where the battery is shown (Settings).
+    var batteryDisplay: BatteryDisplay = .popover {
+        didSet { if !TestMode.isActive { UserDefaults.standard.set(batteryDisplay.rawValue, forKey: BatteryDisplay.defaultsKey) } }
+    }
 
     let callUI = CallUIModel()
     let contacts = ContactsDirectory()
@@ -63,6 +72,7 @@ final class AppModel {
 
     static let addressKey = "phoneAddress"
     static let nameKey = "phoneName"
+    static let unseenMissedCallsKey = "unseenMissedCalls"
     /// Launch argument `-PickupDemo <incoming|call|remote|menu>`: static preview data, no Bluetooth.
     let isDemo = UserDefaults.standard.string(forKey: "PickupDemo") != nil
 
@@ -88,6 +98,8 @@ final class AppModel {
         let defaults = UserDefaults.standard
         selectedAddress = defaults.string(forKey: Self.addressKey)
         selectedName = defaults.string(forKey: Self.nameKey)
+        hasUnseenMissedCalls = defaults.bool(forKey: Self.unseenMissedCallsKey)
+        batteryDisplay = defaults.string(forKey: BatteryDisplay.defaultsKey).flatMap(BatteryDisplay.init) ?? .popover
     }
 
     // MARK: Lifecycle
@@ -205,6 +217,7 @@ final class AppModel {
         guard let engine else {
             set(\.connection, selectedAddress == nil ? .noPhone : .disconnected(phoneName: selectedName ?? fallbackPhoneName))
             set(\.callIsLive, false)
+            set(\.phoneBattery, isDemo ? 3 : nil)
             set(\.guidance, bluetoothDenied ? .bluetoothDenied : (selectedAddress == nil ? .choosePhone : linkHint))
             if !isDemo { setUI(incoming: nil, active: nil) }
             return
@@ -222,6 +235,7 @@ final class AppModel {
         }
         set(\.connection, status)
         set(\.callHistory, engine.callHistory)
+        set(\.phoneBattery, link == .connected ? engine.phoneStatus.battery : nil)
         trackStuckLink(connected: link == .connected)
         set(\.guidance, bluetoothDenied ? .bluetoothDenied
             : (showCannotConnect && link != .connected ? .cannotConnect(phoneName: engine.deviceName ?? selectedName) : linkHint))
@@ -408,10 +422,27 @@ final class AppModel {
     // MARK: Missed calls
 
     private func callFinished(_ call: CallInfo) {
-        guard call.direction == .incoming, call.endReason == .missed else { return }
+        guard MissedCalls.isMissed(call) else { return }
+        setUnseenMissedCalls(true)
         let number = call.callerID.number
         let name = number.flatMap { contacts.match(for: $0)?.name }
-        MissedCallNotifier.shared.notifyMissed(name: name, number: number.map { PhoneNumberFormat.display($0) })
+        MissedCallNotifier.shared.notifyMissed(name: name, number: number)
+    }
+
+    /// The user opened the recent calls (the popover shows the missed calls then): the dot goes away.
+    func markMissedCallsSeen() { setUnseenMissedCalls(false) }
+
+    private func setUnseenMissedCalls(_ unseen: Bool) {
+        guard hasUnseenMissedCalls != unseen else { return }
+        hasUnseenMissedCalls = unseen
+        if !TestMode.isActive { UserDefaults.standard.set(unseen, forKey: Self.unseenMissedCallsKey) }
+    }
+
+    /// "Call Back" in a missed-call notification: an explicit user action, so it dials. A service code
+    /// from the phone is never dialed this way.
+    func callBack(_ number: String) {
+        guard let dialNumber = DialNumber(number), !dialNumber.isServiceCode else { return }
+        if let message = dial(dialNumber) { showNotice(message) }
     }
 
     // MARK: tel: / callto: links

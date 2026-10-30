@@ -21,7 +21,9 @@ struct MenuView: View {
         VStack(spacing: 0) {
             DialerView(model: model, contentWidth: width - 2 * DialerView.sideMargin, openSettings: openSettings, close: close)
 
-            BottomBar(status: model.connection, openSettings: openSettings, showAbout: showAbout)
+            BottomBar(status: model.connection,
+                      battery: model.batteryDisplay == .popover ? model.phoneBattery : nil,
+                      openSettings: openSettings, showAbout: showAbout)
         }
         .frame(width: width)
         .overlay(alignment: .leading) { resizeEdge(.leading) }
@@ -93,6 +95,8 @@ private struct PopoverResizeEdge: View {
 /// Status on the left, one round Liquid Glass button with the app menu on the right.
 private struct BottomBar: View {
     let status: ConnectionStatus
+    /// Phone battery level 0...5, shown after the status text; nil hides it.
+    let battery: Int?
     let openSettings: () -> Void
     let showAbout: () -> Void
     @State private var anchor = AnchorView.Holder()
@@ -105,6 +109,9 @@ private struct BottomBar: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
+            if let battery {
+                BatteryGauge(level: battery)
+            }
             Spacer(minLength: 8)
             GlassEffectContainer {
                 Button {
@@ -149,6 +156,41 @@ private struct BottomBar: View {
         case .disconnected(let name):
             String(localized: "Not connected to \(name)", comment: "Menu status line when the Bluetooth link is down. %@ is the phone name.")
         }
+    }
+}
+
+/// The phone's battery: an outlined battery filled in system green up to the level, and the percentage.
+private struct BatteryGauge: View {
+    let level: Int
+
+    var body: some View {
+        let text = PhoneBattery.percentText(level: level)
+        HStack(spacing: 4) {
+            HStack(spacing: 1) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .strokeBorder(Color.secondary, lineWidth: 1)
+                    .overlay(alignment: .leading) {
+                        GeometryReader { proxy in
+                            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                                .fill(Color(nsColor: .systemGreen))
+                                .frame(width: max(0, (proxy.size.width - 4) * PhoneBattery.fraction(level: level)))
+                                .padding(2)
+                        }
+                    }
+                    .frame(width: 22, height: 11)
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Color.secondary)
+                    .frame(width: 1.5, height: 4)
+            }
+            Text(verbatim: text)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Phone battery"))
+        .accessibilityValue(Text(verbatim: text))
+        .accessibilityIdentifier("phone-battery")
     }
 }
 

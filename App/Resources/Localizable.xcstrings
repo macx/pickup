@@ -2575,24 +2575,6 @@
         }
       }
     },
-    "Search field": {
-      "comment": "VoiceOver announcement when the keyboard leaves the recent calls list and returns to the popover's search field.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search field"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suchfeld"
-          }
-        }
-      }
-    },
     "%@ tab, no calls": {
       "comment": "VoiceOver announcement when the recent calls tab is switched from the keyboard and the tab is empty. %@ is the tab name, e.g. \"Missed\".",
       "extractionState": "manual",
@@ -2805,6 +2787,150 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fensterbreite"
+          }
+        }
+      }
+    },
+    "Call Back": {
+      "comment": "Button of the missed-call notification: calls the number back on the phone.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call Back"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurückrufen"
+          }
+        }
+      }
+    },
+    "%@, missed calls": {
+      "comment": "Accessibility label of the menu bar icon while it shows the red dot for missed calls. %@ is the app name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, missed calls"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, verpasste Anrufe"
+          }
+        }
+      }
+    },
+    "%@, phone battery %@": {
+      "comment": "Accessibility label of the menu bar icon with the phone's battery next to it. First %@ is the app name (maybe with \"missed calls\"), second the percentage, e.g. \"60 %\".",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, phone battery %2$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, Akku des Telefons %2$@"
+          }
+        }
+      }
+    },
+    "Phone battery": {
+      "comment": "Settings: where the phone's battery charge is shown. Also the VoiceOver label of the battery gauge in the popover.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone battery"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akku des Telefons"
+          }
+        }
+      }
+    },
+    "In the menu window": {
+      "comment": "Settings option for the phone's battery: gauge and percentage in the popover's status line.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the menu window"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Menüfenster"
+          }
+        }
+      }
+    },
+    "In the menu bar": {
+      "comment": "Settings option for the phone's battery: percentage next to Pickup's menu bar icon.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the menu bar"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Menüleiste"
+          }
+        }
+      }
+    },
+    "Don’t show": {
+      "comment": "Settings option for the phone's battery: hidden.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don’t show"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht anzeigen"
+          }
+        }
+      }
+    },
+    "Your phone reports its charge in steps of 20 percent.": {
+      "comment": "Tooltip of the phone battery setting.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your phone reports its charge in steps of 20 percent."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Telefon meldet seinen Ladestand in Schritten von 20 Prozent."
           }
         }
       }
