@@ -73,17 +73,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     private func updateIcon(connected: Bool, battery: Int?, missed: Bool) {
         guard let button = statusItem.button else { return }
-        button.image = Self.menuBarImage(connected: connected)
-        if let battery {
+        let icon = Self.menuBarImage(connected: connected)
+        if let battery, let icon {
+            // One template image (handset + percentage): NSButton's own image-title gap is too wide.
+            button.image = Self.withPercentage(icon, PhoneBattery.percentText(level: battery))
             statusItem.length = NSStatusItem.variableLength
-            button.imagePosition = .imageLeading
-            button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
-            button.title = PhoneBattery.percentText(level: battery)
         } else {
-            button.title = ""
-            button.imagePosition = .imageOnly
+            button.image = icon
             statusItem.length = NSStatusItem.squareLength
         }
+        button.title = ""
+        button.imagePosition = .imageOnly
         let name = String(localized: "Pickup", comment: "Accessibility label of the menu bar icon. The app name.")
         var label = missed
             ? String(localized: "\(name), missed calls", comment: "Accessibility label of the menu bar icon while it shows the red dot for missed calls. %@ is the app name.")
@@ -99,14 +99,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         positionMissedDot()
     }
 
-    /// At the top right of the handset, also when the percentage widens the button.
+    /// At the top right of the handset, also when the percentage widens the image.
     private func positionMissedDot() {
         guard let button = statusItem.button else { return }
         let image = (button.cell as? NSButtonCell)?.imageRect(forBounds: button.bounds)
             ?? NSRect(x: (button.bounds.width - 18) / 2, y: (button.bounds.height - 18) / 2, width: 18, height: 18)
+        // The handset is the image's left 18 pt (the percentage, if shown, follows it).
+        let handset = NSRect(x: image.minX, y: image.midY - 9, width: 18, height: 18)
         let size = StatusBadgeDot.diameter
-        let y = button.isFlipped ? image.minY - 1 : image.maxY - size + 1
-        missedDot.frame = NSRect(x: image.maxX - size + 1, y: y, width: size, height: size)
+        let y = button.isFlipped ? handset.minY - 1 : handset.maxY - size + 1
+        missedDot.frame = NSRect(x: handset.maxX - size + 1, y: y, width: size, height: size)
     }
 
     /// The template PDFs from App/Resources/MenuBar (copied into the bundle by scripts/build-app.sh). Outside the
@@ -119,6 +121,25 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         image.size = NSSize(width: 18, height: 18)
         image.isTemplate = true                 // black + alpha; the menu bar tints it for light, dark and selected
+        return image
+    }
+
+    /// Gap between the handset and the battery percentage in the menu bar.
+    private static let percentageGap: CGFloat = 3
+
+    /// The handset with the percentage to its right, drawn as one template image so the menu bar
+    /// tints both for light, dark and selected.
+    private static func withPercentage(_ icon: NSImage, _ text: String) -> NSImage {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
+        let string = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+        let textSize = string.size()
+        let size = NSSize(width: ceil(icon.size.width + percentageGap + textSize.width), height: max(icon.size.height, ceil(textSize.height)))
+        let image = NSImage(size: size, flipped: false) { _ in
+            icon.draw(in: NSRect(x: 0, y: (size.height - icon.size.height) / 2, width: icon.size.width, height: icon.size.height))
+            string.draw(at: NSPoint(x: icon.size.width + percentageGap, y: (size.height - textSize.height) / 2))
+            return true
+        }
+        image.isTemplate = true
         return image
     }
 
@@ -294,11 +315,25 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             (AppInfo.repositoryURL, String(localized: "Source code on GitHub", comment: "Link text in the About panel.")),
             (AppInfo.websiteURL, nil),   // shown as its domain
         ]
-        for case let (string?, text) in links {
-            guard let url = URL(string: string), let title = text ?? url.host() else { continue }
+        let shown = links.compactMap { string, text -> (URL, String)? in
+            guard let string, let url = URL(string: string), let title = text ?? url.host() else { return nil }
+            return (url, title)
+        }
+        for (index, (url, title)) in shown.enumerated() {
+            // Centred like the rest of the panel; the links get room above the first and below the last.
+            let style = NSMutableParagraphStyle()
+            style.alignment = .center
+            style.paragraphSpacingBefore = index == 0 ? 10 : 2
+            style.paragraphSpacing = index == shown.count - 1 ? 10 : 0
             credits.append(NSAttributedString(string: "\n"))
-            credits.append(NSAttributedString(
-                string: title, attributes: [.link: url, .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]))
+            credits.append(NSAttributedString(string: title, attributes: [
+                .link: url, .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize), .paragraphStyle: style,
+            ]))
+        }
+        let centered = NSMutableParagraphStyle()
+        centered.alignment = .center
+        credits.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: credits.length)) { value, range, _ in
+            if value == nil { credits.addAttribute(.paragraphStyle, value: centered, range: range) }
         }
         options[.credits] = credits
         NSApp.orderFrontStandardAboutPanel(options: options)

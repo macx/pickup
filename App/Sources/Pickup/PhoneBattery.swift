@@ -20,8 +20,10 @@ enum PhoneBattery {
     /// Filled share of the gauge, 0...1.
     static func fraction(level: Int) -> Double { Double(percent(level: level)) / 100 }
 
-    /// "60 %" (German) or "60%" (English), in the user's locale.
+    /// "60 %" (German) or "60%" (English), in the user's locale. The space some locales put before
+    /// the percent sign is a narrow one (half the width), which reads better at small sizes.
     static func percentText(level: Int, locale: Locale = .current) -> String {
         (Double(percent(level: level)) / 100).formatted(.percent.locale(locale))
+            .replacingOccurrences(of: "\u{00A0}", with: "\u{202F}")
     }
 }

@@ -12,7 +12,7 @@ final class PhoneBatteryTests: XCTestCase {
 
     func testPercentTextFollowsTheLocale() {
         XCTAssertEqual(PhoneBattery.percentText(level: 3, locale: Locale(identifier: "en_US")), "60%")
-        XCTAssertEqual(PhoneBattery.percentText(level: 3, locale: Locale(identifier: "de_DE")), "60\u{00A0}%")
+        XCTAssertEqual(PhoneBattery.percentText(level: 3, locale: Locale(identifier: "de_DE")), "60\u{202F}%", "a narrow no-break space")
     }
 }
 

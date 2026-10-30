@@ -165,7 +165,7 @@ private struct BatteryGauge: View {
 
     var body: some View {
         let text = PhoneBattery.percentText(level: level)
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             HStack(spacing: 1) {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .strokeBorder(Color.secondary, lineWidth: 1)
