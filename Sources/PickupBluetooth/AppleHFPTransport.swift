@@ -325,25 +325,6 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         }
     }
 
-    /// `+BRSF` bit 0 (three-way calling) and `+CHLD` modes 0, 1 and 2 (IOBluetooth's bitmap: bit 0 = "0",
-    /// bit 1 = "1", bit 3 = "2"; see `HFPFeatures.callHoldModes`).
-    public var supportsCallHold: Bool {
-        // Without the write hook the phone's OK cannot be matched to AT+CHLD (as for the call list reads).
-        guard outgoingTapInstalled, let link, linkState == .connected else { return false }
-        return Self.supportsCallHold(features: link.audioGatewayFeatures, holdModes: link.callHoldModes)
-    }
-
-    nonisolated static func supportsCallHold(features: UInt32, holdModes: UInt32) -> Bool {
-        let required: UInt32 = 0b1011
-        return features & 1 != 0 && holdModes & required == required
-    }
-
-    public func callHold(_ action: CallHoldAction) throws {
-        guard supportsCallHold else { throw TransportError.unsupported }
-        let line = "AT+CHLD=\(action.rawValue)"
-        try issue("sendATCommand(\(line))") { $0.sendATCommand(line) }
-    }
-
     public func readCallHistory(_ list: CallHistoryList, count: Int) throws {
         guard !isInvalidated else { throw TransportError.invalidated }
         // Without the write hook, the phone's answers cannot be matched to the commands.
@@ -913,6 +894,29 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
             break
         }
         eventHandler?(event)
+    }
+}
+
+// MARK: - Three-way calling
+
+extension AppleHFPTransport {
+    /// `+BRSF` bit 0 (three-way calling) and `+CHLD` modes 0, 1 and 2 (IOBluetooth's bitmap: bit 0 = "0",
+    /// bit 1 = "1", bit 3 = "2"; see `HFPFeatures.callHoldModes`).
+    public var supportsCallHold: Bool {
+        // Without the write hook the phone's OK cannot be matched to AT+CHLD (as for the call list reads).
+        guard outgoingTapInstalled, let link, linkState == .connected else { return false }
+        return Self.supportsCallHold(features: link.audioGatewayFeatures, holdModes: link.callHoldModes)
+    }
+
+    nonisolated static func supportsCallHold(features: UInt32, holdModes: UInt32) -> Bool {
+        let required: UInt32 = 0b1011
+        return features & 1 != 0 && holdModes & required == required
+    }
+
+    public func callHold(_ action: CallHoldAction) throws {
+        guard supportsCallHold else { throw TransportError.unsupported }
+        let line = "AT+CHLD=\(action.rawValue)"
+        try issue("sendATCommand(\(line))") { $0.sendATCommand(line) }
     }
 }
 

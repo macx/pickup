@@ -3457,24 +3457,6 @@
         }
       }
     },
-    "With Pickup you control the incoming and outgoing calls of your Android phone, much like Apple does for the iPhone with Continuity. The conversation itself stays on your phone. Please check the permissions below once, then you’re ready to go.": {
-      "comment": "Welcome window text at the first launch. Continuity is Apple’s name for the iPhone feature; keep it.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "With Pickup you control the incoming and outgoing calls of your Android phone, much like Apple does for the iPhone with Continuity. The conversation itself stays on your phone. Please check the permissions below once, then you’re ready to go."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mit Pickup steuerst du deine ein- und ausgehenden Anrufe deines Android-Smartphones, ähnlich wie das Apple beim iPhone mit Continuity macht. Das Gespräch selbst bleibt dabei aber auf deinem Telefon. Bitte prüfe einmal die Freigaben unten, dann kann es losgehen."
-          }
-        }
-      }
-    },
     "Loading recent calls": {
       "comment": "VoiceOver label of the placeholder rows shown while the recent calls are read from the phone.",
       "extractionState": "manual",
@@ -3507,6 +3489,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "Die letzten Anrufe sind gerade nicht verfügbar."
+          }
+        }
+      }
+    },
+    "Pickup controls the incoming and outgoing calls of your Android phone, much like Continuity does for the iPhone. The conversation stays on your phone. Check the permissions below once, then you’re ready.": {
+      "comment": "Welcome window text at the first launch. Continuity is Apple’s name for the iPhone feature; keep it.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pickup controls the incoming and outgoing calls of your Android phone, much like Continuity does for the iPhone. The conversation stays on your phone. Check the permissions below once, then you’re ready."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Pickup steuerst du deine ein- und ausgehenden Anrufe deines Android-Smartphones, ähnlich wie das Apple beim iPhone mit Continuity macht. Das Gespräch selbst bleibt dabei aber auf deinem Telefon. Bitte prüfe einmal die Freigaben unten, dann kann es losgehen."
           }
         }
       }

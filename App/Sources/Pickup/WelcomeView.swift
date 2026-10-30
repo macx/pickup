@@ -70,7 +70,8 @@ struct WelcomeView: View {
                 Group {
                     switch reason {
                     case .firstLaunch:
-                        Text("With Pickup you control the incoming and outgoing calls of your Android phone, much like Apple does for the iPhone with Continuity. The conversation itself stays on your phone. Please check the permissions below once, then you’re ready to go.",
+                        Text(
+                            "Pickup controls the incoming and outgoing calls of your Android phone, much like Continuity does for the iPhone. The conversation stays on your phone. Check the permissions below once, then you’re ready.",
                              comment: "Welcome window text at the first launch. Continuity is Apple’s name for the iPhone feature; keep it.")
                     case .updatedUnsigned:
                         Text("Pickup isn’t signed by Apple yet, so macOS treats every update like a new app and may ask for its permissions again. Here you see them all at a glance.",
