@@ -68,6 +68,8 @@ struct DialerView: View {
     /// Search results, or the recent calls of the selected tab while the field is empty.
     private var rows: [DialerRow] {
         if queryIsEmpty {
+            // The keypad takes the recent calls' place: hidden rows can never be selected or dialed.
+            guard !showKeypad else { return [] }
             return DialerRows.recentRows(model.callHistory.entries(recentList), list: recentList)
         }
         return DialerRows.rows(for: text, contacts: model.contacts.search(text), fromKeypad: fromKeypad)
@@ -203,6 +205,19 @@ struct DialerView: View {
                 }
             case .tabs, nil:
                 if queryIsEmpty { selectedID = nil }   // Return goes to the focused control now, not to a recent call
+            }
+        }
+        .onChange(of: showKeypad) { _, _ in
+            if queryIsEmpty { selectedID = nil; pendingConfirmationID = nil }
+        }
+        .onChange(of: model.callHistory.entries(recentList)) { old, new in
+            // Row IDs are positions: when the phone's list changes under a selected row, that row may now be
+            // another caller. Drop the selection (and a pending service-code confirmation) unless it is the same.
+            guard queryIsEmpty, let id = selectedID ?? pendingConfirmationID, id.hasPrefix("recent|"),
+                  let index = id.split(separator: "|").last.flatMap({ Int($0) }) else { return }
+            if !old.indices.contains(index) || !new.indices.contains(index) || old[index] != new[index] {
+                selectedID = nil
+                pendingConfirmationID = nil
             }
         }
         .onChange(of: recentListRaw) { _, _ in

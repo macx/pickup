@@ -44,6 +44,7 @@ struct CallHUDView: View {
                               title: info.phase == .held ? "Resume" : "Hold",
                               style: info.phase == .held ? .toggled : .neutral,
                               identifier: "hud-hold", action: actions.toggleHold)
+                    .disabled(info.holdPending)
             }
             if let held = info.held, info.phase == .active {
                 heldCallRow(held)
@@ -119,25 +120,32 @@ struct CallHUDView: View {
     /// The call on hold while another one is active: swap to it or end it.
     private func heldCallRow(_ held: CallParty) -> some View {
         let name = held.primaryText ?? String(localized: "Unknown caller")
+        // Without three-way calling (a second call set up on the phone) the row only informs. With a third,
+        // waiting caller, swapping would take that call instead, so it waits.
+        let canAct = info.canHold && !info.holdPending
         return SecondCallRow(party: held, status: String(localized: "On hold")) {
-            Button(action: actions.swapCalls) {
-                Label("Swap", systemImage: "arrow.left.arrow.right")
+            if info.canHold {
+                Button(action: actions.swapCalls) {
+                    Label("Swap", systemImage: "arrow.left.arrow.right")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel(Text("Swap to \(name)", comment: "VoiceOver label of the button that swaps to the call on hold. %@ is the caller's name or number."))
+                .help(Text("Swap to \(name)"))
+                .accessibilityIdentifier("hud-swap")
+                .disabled(!canAct || info.waiting != nil)
+                Button(action: actions.endHeld) {
+                    Image(systemName: "phone.down.fill")
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.red, in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(PressableStyle())
+                .accessibilityLabel(Text("End call with \(name)", comment: "VoiceOver label of the button that ends the call on hold. %@ is the caller's name or number."))
+                .help(Text("End call with \(name)"))
+                .accessibilityIdentifier("hud-end-held")
+                .disabled(!canAct || info.waiting != nil)
             }
-            .buttonStyle(.bordered)
-            .accessibilityLabel(Text("Swap to \(name)", comment: "VoiceOver label of the button that swaps to the call on hold. %@ is the caller's name or number."))
-            .help(Text("Swap to \(name)"))
-            .accessibilityIdentifier("hud-swap")
-            Button(action: actions.endHeld) {
-                Image(systemName: "phone.down.fill")
-                    .foregroundStyle(.white)
-                    .frame(width: 28, height: 28)
-                    .background(Color.red, in: Circle())
-                    .contentShape(Circle())
-            }
-            .buttonStyle(PressableStyle())
-            .accessibilityLabel(Text("End call with \(name)", comment: "VoiceOver label of the button that ends the call on hold. %@ is the caller's name or number."))
-            .help(Text("End call with \(name)"))
-            .accessibilityIdentifier("hud-end-held")
         }
     }
 
@@ -162,14 +170,17 @@ struct CallHUDView: View {
         .buttonStyle(.bordered)
         .tint(.red)
         .accessibilityIdentifier("hud-waiting-decline")
+        // End & Accept needs an active call: a call on hold would stay (CHLD=1 ends active calls only).
+        let canEnd = info.phase == .active
         return VStack(spacing: 8) {
             SecondCallRow(party: waiting, status: String(localized: "Call waiting", comment: "Status of a second incoming call in the call window (call waiting).")) {}
             if info.held == nil { holdAndAccept }
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { endAndAccept; decline }
-                VStack(spacing: 8) { endAndAccept; decline }
+                HStack(spacing: 8) { if canEnd { endAndAccept }; decline }
+                VStack(spacing: 8) { if canEnd { endAndAccept }; decline }
             }
         }
+        .disabled(info.holdPending)
         .controlSize(.large)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("hud-waiting")

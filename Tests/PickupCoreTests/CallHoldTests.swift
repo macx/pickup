@@ -253,4 +253,60 @@ final class CallHoldTests: XCTestCase {
         XCTAssertEqual(HFPCommand(atCommand: "AT+CHLD=?"), .other("AT+CHLD=?"))
         XCTAssertNil(HFPCommand.responsePrefix(of: "AT+CHLD=1"))
     }
+
+    // MARK: Review fixes (PR #7)
+
+    func testSwapIsRefusedWhileAThirdCallerWaits() throws {
+        try janeHeldJohnActive()
+        transport.emit(.callSetup(.incoming))
+        transport.emit(.callWaiting("+49300000789"))
+        XCTAssertThrowsError(try engine.swapCalls(), "CHLD=2 would take the waiting caller instead")
+        XCTAssertEqual(holdCommands, [])
+    }
+
+    func testEndAndAcceptIsRefusedWhileTheCallIsOnHold() throws {
+        activeCallWithJane()
+        try engine.toggleHold()
+        ok()
+        transport.emit(.callHeld(.heldOnly))
+        johnWaits()
+        transport.clearCommands()
+        XCTAssertThrowsError(try engine.acceptWaitingCall(endingCurrent: true), "CHLD=1 would leave the held call")
+        XCTAssertNoThrow(try engine.acceptWaitingCall(endingCurrent: false))
+    }
+
+    func testOneHoldCommandAtATimeAndAnUnansweredOneIsGivenUp() throws {
+        try janeHeldJohnActive()
+        try engine.swapCalls()
+        XCTAssertTrue(engine.isCallHoldPending)
+        XCTAssertThrowsError(try engine.endHeldCall(), "the swap's reply must not be taken for this command")
+        scheduler.advance(by: engine.configuration.callHoldReplyTimeout)
+        XCTAssertFalse(engine.isCallHoldPending)
+        XCTAssertNoThrow(try engine.endHeldCall())
+    }
+
+    func testAWaitingCallerWhoGivesUpIsAMissedCall() {
+        activeCallWithJane()
+        johnWaits()
+        transport.emit(.callSetup(.none))   // John hangs up before anyone answers
+        XCTAssertTrue(finished.isEmpty)
+        scheduler.advance(by: engine.configuration.waitingCallTakenWindow)
+        XCTAssertEqual(finished.last?.number, john)
+        XCTAssertEqual(finished.last?.endReason, .missed)
+        XCTAssertEqual(engine.callHistory.entries(.missed).map(\.number), [john])
+    }
+
+    func testCallsSwappedOnThePhoneAreFollowed() throws {
+        try janeHeldJohnActive()   // John active, Jane held
+        transport.emit(.callHeld(.activeAndHeld))   // the phone repeats callheld=1 after a swap
+        XCTAssertTrue(transport.commands.contains(.requestCurrentCalls))
+        let janeID = engine.heldCall?.id
+        transport.emit(.currentCalls([
+            HFPCall(index: 1, direction: .incoming, status: .active, number: jane),
+            HFPCall(index: 2, direction: .incoming, status: .held, number: john),
+        ]))
+        XCTAssertEqual(engine.call?.number, jane)
+        XCTAssertEqual(engine.call?.id, janeID, "the call keeps its identity and times")
+        XCTAssertEqual(engine.heldCall?.number, john)
+    }
 }

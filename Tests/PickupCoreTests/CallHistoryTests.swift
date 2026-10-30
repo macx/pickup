@@ -198,4 +198,49 @@ final class CallHistoryTests: XCTestCase {
         transport.emit(.callHistory(.dialed, []))
         XCTAssertFalse(engine.callHistory.lastReadUnanswered, "a later answer clears it")
     }
+
+    // MARK: Review fixes (PR #7)
+
+    func testAReadAnsweredBeforeTheCallReturnsDoesNotStayLoading() {
+        transport.answerHistorySynchronously = .some(nil)
+        transport.bringUp()
+        scheduler.advance(by: 2)
+        XCTAssertFalse(engine.callHistory.isLoading, "the pending list is registered before the transport is asked")
+    }
+
+    func testARefusedReadDropsTheOldSnapshot() {
+        transport.bringUp()
+        scheduler.advance(by: 2)
+        transport.emit(.callHistory(.dialed, [CallHistoryEntry(number: "+49300000123")]))
+        XCTAssertEqual(engine.callHistory.source(.dialed), .phone)
+        transport.emit(.callHistory(.dialed, nil))   // access revoked
+        XCTAssertEqual(engine.callHistory.source(.dialed), .session)
+    }
+
+    func testACallLostWithTheLinkAndResumedIsRecordedOnce() {
+        transport.supportsCallHistory = false
+        transport.bringUp()
+        transport.emit(.callSetup(.incoming))
+        transport.emit(.currentCalls([HFPCall(index: 1, direction: .incoming, status: .incoming, number: "+49300000123")]))
+        transport.emit(.call(true))
+        transport.emit(.callSetup(.none))
+        transport.emit(.linkStateChanged(.disconnected))
+        XCTAssertEqual(engine.callHistory.entries(.received), [], "not yet: the call may come back")
+        transport.bringUp(call: true)   // the same call resumes
+        transport.emit(.call(false))    // and ends
+        scheduler.advance(by: 300)
+        XCTAssertEqual(engine.callHistory.entries(.received).count, 1)
+    }
+
+    func testACallLostForGoodIsRecordedAfterTheRestoreWindow() {
+        transport.supportsCallHistory = false
+        transport.bringUp()
+        transport.emit(.callSetup(.incoming))
+        transport.emit(.currentCalls([HFPCall(index: 1, direction: .incoming, status: .incoming, number: "+49300000123")]))
+        transport.emit(.call(true))
+        transport.emit(.callSetup(.none))
+        transport.emit(.linkStateChanged(.disconnected))
+        scheduler.advance(by: engine.configuration.lostCallRestoreWindow + 1)
+        XCTAssertEqual(engine.callHistory.entries(.received).count, 1)
+    }
 }

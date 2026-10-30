@@ -144,9 +144,12 @@ final class MockHFPTransport: HFPTransport {
         guard supportsCallHold else { throw TransportError.unsupported }
         try record(.callHold(action))
     }
+    /// Answers a read before `readCallHistory` returns, like a transport whose write fails at once.
+    var answerHistorySynchronously: [CallHistoryEntry]?? = .none
     func readCallHistory(_ list: CallHistoryList, count: Int) throws {
         guard supportsCallHistory else { throw TransportError.unsupported }
         try record(.readCallHistory(list))
+        if case .some(let entries) = answerHistorySynchronously { emit(.callHistory(list, entries)) }
     }
 }
 

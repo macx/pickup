@@ -656,6 +656,40 @@ final class AppleHFPTransportTests: XCTestCase {
         XCTAssertEqual(link.calls.last, #"AT+CPBS="RC""#)
     }
 
+    // MARK: Review fixes (PR #7)
+
+    func testCallHoldNeedsTheWriteHook() {
+        let transport = makeTransport(address: "aa-bb-cc-dd-ee-02", assumeOutgoingTap: false)
+        let link = connected(transport)
+        link.audioGatewayFeatures = 0b1
+        link.callHoldModes = 0b1011
+        XCTAssertFalse(transport.supportsCallHold, "without the hook the phone's OK cannot be matched to AT+CHLD")
+    }
+
+    func testCallListReadGivesUpWhenTheLinkNeverBecomesIdle() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        try transport.readCallHistory(.dialed, count: 5)
+        transport.sentLine("AT+VGS=7", detail: nil, channel: link.channel)   // never answered, silent link
+        clock.advance(by: 17.5)
+        XCTAssertFalse(events.contains(.callHistoryUnanswered(.dialed)))
+        clock.advance(by: 1)
+        XCTAssertTrue(events.contains(.callHistoryUnanswered(.dialed)), "the queued read is not left waiting forever")
+        XCTAssertFalse(link.calls.contains { $0.hasPrefix("AT+CPB") }, "IOBluetooth's safety gate is never bypassed")
+    }
+
+    func testDiscardedCallListCommandIsUnansweredNotRefused() throws {
+        let transport = makeTransport()
+        let link = connected(transport)
+        clock.advance(by: 10)
+        try transport.readCallHistory(.dialed, count: 5)
+        transport.sentLine(#"AT+CPBS="DC""#, detail: nil, channel: link.channel)
+        clock.advance(by: 6)
+        transport.receivedLine("+CIEV: 5,3", detail: nil)   // an unrelated line: the tracker drops the stale command
+        XCTAssertTrue(events.contains(.callHistoryUnanswered(.dialed)))
+        XCTAssertFalse(events.contains(.callHistory(.dialed, nil)), "no answer is not a refusal")
+    }
+
     func testCallHistoryIsSelectedThenReadOneListAtATime() async throws {
         let transport = makeTransport()
         let link = connected(transport)

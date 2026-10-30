@@ -45,6 +45,9 @@ public final class CallEngine {
         /// A waiting call that stopped ringing counts as taken on the phone (with the current call on
         /// hold) if the phone reports an active and a held call within this time.
         public var waitingCallTakenWindow: TimeInterval = 5
+        /// A three-way calling command the phone does not answer within this is given up, so the next
+        /// one can be sent.
+        public var callHoldReplyTimeout: TimeInterval = 10
 
         public init() {}
     }
@@ -82,6 +85,8 @@ public final class CallEngine {
     public var isAudioOnMacEnabled: Bool { supportsAudio && takeCallsOnMac }
     /// The phone supports holding, swapping and taking a waiting call.
     public var supportsCallHold: Bool { transport.supportsCallHold }
+    /// A three-way calling command is waiting for the phone's answer; the next one is refused until then.
+    public private(set) var isCallHoldPending = false
     public var phoneStatus: PhoneStatus {
         PhoneStatus(
             hasService: indicators.service, signal: indicators.signal,
@@ -117,7 +122,14 @@ public final class CallEngine {
     /// The three-way calling command sent and not answered yet; its effect is applied when the phone
     /// confirms it (or earlier, when the matching indicator arrives first).
     private enum HoldRequest { case toggle, swap, acceptWaitingHolding, acceptWaitingEnding, rejectWaiting, endActive, endHeld }
-    @ObservationIgnored private var holdRequest: HoldRequest?
+    @ObservationIgnored private var holdRequest: HoldRequest? {
+        didSet { isCallHoldPending = holdRequest != nil }
+    }
+    @ObservationIgnored private var holdTimeoutTask: ScheduledTask?
+    @ObservationIgnored private var resolvedWaitingTask: ScheduledTask?
+    /// A call lost with the link is recorded in the recent calls only once it is clear it will not be
+    /// resumed (it would otherwise appear twice).
+    @ObservationIgnored private var lostCallRecordTask: ScheduledTask?
     /// The waiting call that stopped ringing without a request from this Mac (taken, declined or
     /// missed on the phone), to recognise it when the phone reports it as active.
     @ObservationIgnored private var resolvedWaiting: (call: CallInfo, at: Date)?
@@ -177,7 +189,8 @@ public final class CallEngine {
         transport.invalidate()
         transport.eventHandler = nil
         linkStateChanged(.disconnected)
-        for task in [setupEndTask, endedClearTask, dialTimeoutTask, lookupRetryTask, audioWatchdogTask, historyRefreshTask] {
+        for task in [setupEndTask, endedClearTask, dialTimeoutTask, lookupRetryTask, audioWatchdogTask, historyRefreshTask,
+                     holdTimeoutTask, resolvedWaitingTask, lostCallRecordTask] {
             task?.cancel()
         }
     }
@@ -302,7 +315,8 @@ public final class CallEngine {
     /// Swaps the active and the held call.
     public func swapCalls() throws {
         try requireCallHold()
-        guard heldCall != nil, phase == .active else { throw CallEngineError.invalidPhase(phase) }
+        // With a third (waiting) caller, CHLD=2 would take that call instead of swapping.
+        guard heldCall != nil, waitingCall == nil, phase == .active else { throw CallEngineError.invalidPhase(phase) }
         try sendHold(.holdActiveAcceptOther, .swap)
     }
 
@@ -312,6 +326,8 @@ public final class CallEngine {
         try requireCallHold()
         guard waitingCall != nil, phase == .active || phase == .held else { throw CallEngineError.invalidPhase(phase) }
         guard endingCurrent || heldCall == nil else { throw CallEngineError.unsupported }
+        // CHLD=1 ends active calls only: a call that is on hold would stay, not end.
+        guard !endingCurrent || phase == .active else { throw CallEngineError.invalidPhase(phase) }
         if endingCurrent, let call { localEndRequestedFor = call.id }
         try sendHold(endingCurrent ? .releaseActiveAcceptOther : .holdActiveAcceptOther,
                      endingCurrent ? .acceptWaitingEnding : .acceptWaitingHolding)
@@ -336,10 +352,21 @@ public final class CallEngine {
         guard transport.supportsCallHold else { throw CallEngineError.unsupported }
     }
 
+    /// One three-way calling command at a time: a reply could otherwise be taken for the wrong request.
     private func sendHold(_ action: CallHoldAction, _ request: HoldRequest) throws {
+        guard holdRequest == nil else { throw CallEngineError.invalidPhase(phase) }
         log.log(.command, "call hold \(action.rawValue) (\(request)) -> callHold()")
         try perform { try transport.callHold(action) }
         holdRequest = request
+        holdTimeoutTask?.cancel()
+        holdTimeoutTask = scheduler.schedule(after: configuration.callHoldReplyTimeout) { [weak self] in
+            guard let self, self.holdRequest != nil else { return }
+            self.log.log(.warning, "no answer to the call hold command; giving up")
+            if self.holdRequest == .endActive || self.holdRequest == .acceptWaitingEnding { self.localEndRequestedFor = nil }
+            self.holdRequest = nil
+            self.holdTimeoutTask = nil
+            if self.phase.isLive { self.requestCallList(resetAttempts: true) }
+        }
     }
 
     /// "Move to phone": hands the call audio back to the phone.
@@ -450,7 +477,8 @@ public final class CallEngine {
         historyRefreshTask = nil
         waitingCall = nil
         holdRequest = nil
-        resolvedWaiting = nil
+        holdTimeoutTask?.cancel()
+        finalizeResolvedWaiting()
         if let held = heldCall {
             heldCall = nil
             recordBackground(held, .connectionLost)
@@ -464,7 +492,11 @@ public final class CallEngine {
     }
 
     private func indicatorChanged(_ indicator: HFPIndicator) {
-        guard indicators.apply(indicator) else { return }
+        guard indicators.apply(indicator) else {
+            // The phone repeats callheld=1 when the calls are swapped on the phone: the call list says which is active.
+            if indicator == .callHeld(.activeAndHeld), heldCall != nil { requestCallList(resetAttempts: true) }
+            return
+        }
         switch indicator {
         case .call(let isActive):
             if isActive { callIndicatorSet() } else { callIndicatorCleared() }
@@ -523,6 +555,10 @@ public final class CallEngine {
                     log.log(.state, "waiting call gone")
                     waitingCall = nil
                     resolvedWaiting = (waiting, scheduler.now)
+                    resolvedWaitingTask?.cancel()
+                    resolvedWaitingTask = scheduler.schedule(after: configuration.waitingCallTakenWindow) { [weak self] in
+                        self?.finalizeResolvedWaiting()
+                    }
                 }
                 // If the waiting call was taken (calls swapped), the list shows the new active call.
                 requestCallList(resetAttempts: true)
@@ -635,6 +671,16 @@ public final class CallEngine {
         }
     }
 
+    /// A waiting caller that stopped ringing and was not taken (declined or gave up): a missed call
+    /// (recent calls, red dot, notification).
+    private func finalizeResolvedWaiting() {
+        resolvedWaitingTask?.cancel()
+        resolvedWaitingTask = nil
+        guard let waiting = resolvedWaiting?.call else { return }
+        resolvedWaiting = nil
+        recordBackground(waiting, .missed)
+    }
+
     private var recentlyResolvedWaiting: CallInfo? {
         guard let resolvedWaiting,
               scheduler.now.timeIntervalSince(resolvedWaiting.at) <= configuration.waitingCallTakenWindow else { return nil }
@@ -647,6 +693,8 @@ public final class CallEngine {
               current.phase == .active || current.phase == .held else { return }
         waitingCall = nil
         resolvedWaiting = nil
+        resolvedWaitingTask?.cancel()
+        resolvedWaitingTask = nil
         var next = waiting
         next.phase = .active
         next.connectedAt = scheduler.now
@@ -723,6 +771,15 @@ public final class CallEngine {
             waitingCall = waiting
         }
 
+        if let active = call, let held = heldCall,
+           let activeEntry = calls.first(where: { $0.status == .active }),
+           let heldEntry = calls.first(where: { $0.status == .held || $0.status == .heldByResponseAndHold }),
+           let activeNumber = active.number, let heldNumber = held.number, !Self.sameNumber(activeNumber, heldNumber),
+           Self.sameNumber(activeNumber, heldEntry.number), Self.sameNumber(heldNumber, activeEntry.number) {
+            // Swapped on the phone: keep each call's identity and times, exchange their roles.
+            log.log(.state, "calls were swapped on the phone")
+            swapActiveAndHeld()
+        }
         if var held = heldCall, let entry = calls.first(where: { $0.status == .held || $0.status == .heldByResponseAndHold }) {
             held.callerID = merged(held.callerID, with: CallerID(listedNumber: entry.number))
             if held.direction == .unknown { held.direction = entry.direction }
@@ -790,6 +847,8 @@ public final class CallEngine {
     private func holdCompleted(_ result: CommandResult) {
         guard let request = holdRequest else { return }
         holdRequest = nil
+        holdTimeoutTask?.cancel()
+        holdTimeoutTask = nil
         guard result.isSuccess else {
             lastCommandFailure = CommandFailure(command: .callHold, result: result, date: scheduler.now)
             if request == .endActive || request == .acceptWaitingEnding { localEndRequestedFor = nil }
@@ -871,7 +930,7 @@ public final class CallEngine {
         lookupAttempts = 0
         localEndRequestedFor = nil
         unconfirmedDialFor = nil
-        recentlyLost = nil
+        recordLostCall()   // a new call: the lost one is not coming back
 
         let call = CallInfo(direction: direction, callerID: callerID, phase: phase, startedAt: scheduler.now)
         log.log(.state, "call \(call.id.uuidString.prefix(8)) \(direction.rawValue) -> \(phase.rawValue)")
@@ -892,6 +951,8 @@ public final class CallEngine {
             lookupRetryTask = nil
             lookupAttempts = 0
             recentlyLost = nil
+            lostCallRecordTask?.cancel()   // resumed: it is recorded once, when it really ends
+            lostCallRecordTask = nil
             var call = lost
             call.phase = .active
             call.endedAt = nil
@@ -942,15 +1003,39 @@ public final class CallEngine {
             self.call = nil
             self.log.log(.state, "idle")
         }
-        callHistory.record(call)
-        if reason != .connectionLost { scheduleHistoryRefresh() }
+        if reason == .connectionLost {
+            // Recorded only if the link does not come back with the same call in time.
+            lostCallRecordTask?.cancel()
+            // A moment after the window: a link that comes back right at its edge still resumes the call.
+            lostCallRecordTask = scheduler.schedule(after: configuration.lostCallRestoreWindow + 1) { [weak self] in
+                self?.recordLostCall()
+            }
+        } else {
+            callHistory.record(call)
+            scheduleHistoryRefresh()
+        }
         onCallFinished?(call)
+    }
+
+    /// The call lost with the link was not resumed: into the recent calls now.
+    private func recordLostCall() {
+        lostCallRecordTask?.cancel()
+        lostCallRecordTask = nil
+        guard let lost = recentlyLost else { return }
+        recentlyLost = nil
+        callHistory.record(lost)
     }
 
     /// Keeps a known number when the list has none (e.g. the number we dialed).
     private func merged(_ current: CallerID, with new: CallerID) -> CallerID {
         if case .number = current, new == .withheld { return current }
         return new
+    }
+
+    /// Same number, ignoring formatting ("+49 30 0000123" and "+49300000123").
+    static func sameNumber(_ a: String?, _ b: String?) -> Bool {
+        let digits = { (n: String?) in (n ?? "").filter { $0.isNumber || $0 == "+" } }
+        return !digits(a).isEmpty && digits(a) == digits(b)
     }
 
     /// The call list entry that describes `call`, by status; a single entry always matches.
@@ -1012,9 +1097,10 @@ public final class CallEngine {
         lastHistoryRequest = scheduler.now
         log.log(.command, "read call history -> readCallHistory()")
         for list in CallHistoryList.allCases {
+            // Registered first: a transport may answer (or fail) before the call returns.
+            callHistory.requested(list)
             do {
                 try transport.readCallHistory(list, count: configuration.callHistoryLength)
-                callHistory.requested(list)
             } catch {
                 log.log(.info, "readCallHistory(\(list.rawValue)) unavailable: \(error)")
                 callHistory.received(list, entries: nil)

@@ -298,7 +298,7 @@ final class AppModel {
             audioOnMac: engine.isAudioOnMacEnabled && engine.audioRoute == .mac, isMuted: false,
             waiting: engine.waitingCall.map { self.party(for: $0.callerID) },
             held: engine.heldCall.map { self.party(for: $0.callerID) },
-            canHold: engine.supportsCallHold, notice: notice)
+            canHold: engine.supportsCallHold, holdPending: engine.isCallHoldPending, notice: notice)
     }
 
     private func party(for callerID: CallerID) -> CallParty {

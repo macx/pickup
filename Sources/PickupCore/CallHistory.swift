@@ -95,6 +95,8 @@ public struct CallHistory: Equatable, Sendable {
             phoneRefused = false
             lastReadUnanswered = false
         } else {
+            // Refused (e.g. access revoked): drop the old snapshot, the session list takes over.
+            phoneLists[list] = nil
             phoneRefused = true
         }
     }

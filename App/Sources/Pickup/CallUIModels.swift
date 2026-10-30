@@ -57,6 +57,8 @@ struct ActiveCallInfo: Equatable, Sendable {
     var held: CallParty? = nil
     /// The phone supports holding, swapping and taking a waiting call.
     var canHold = false
+    /// A hold/swap/waiting command is waiting for the phone: those buttons are disabled until it answers.
+    var holdPending = false
     var notice: String? = nil
     /// The user pressed End Call and the phone has not confirmed yet: the button shows progress.
     var isEnding = false

@@ -158,6 +158,8 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     private var historyRetryTask: ScheduledTask?
     /// Gives up the current call list command if the phone never answers it.
     private var historyTimeoutTask: ScheduledTask?
+    /// When the first queued list started waiting for an idle link; the wait is bounded (see `sendNextHistoryCommand`).
+    private var historyWaitingSince: Date?
     private var fallbackFlush: ScheduledTask?
     private var connectObserver: AnyObject?
 
@@ -326,7 +328,8 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
     /// `+BRSF` bit 0 (three-way calling) and `+CHLD` modes 0, 1 and 2 (IOBluetooth's bitmap: bit 0 = "0",
     /// bit 1 = "1", bit 3 = "2"; see `HFPFeatures.callHoldModes`).
     public var supportsCallHold: Bool {
-        guard let link, linkState == .connected else { return false }
+        // Without the write hook the phone's OK cannot be matched to AT+CHLD (as for the call list reads).
+        guard outgoingTapInstalled, let link, linkState == .connected else { return false }
         return Self.supportsCallHold(features: link.audioGatewayFeatures, holdModes: link.callHoldModes)
     }
 
@@ -346,6 +349,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         // Without the write hook, the phone's answers cannot be matched to the commands.
         guard outgoingTapInstalled else { throw TransportError.unsupported }
         guard linkState == .connected, link != nil else { throw TransportError.notConnected }
+        if historyQueue.isEmpty && historyStep == nil { historyWaitingSince = scheduler.now }
         historyQueue.append((list, max(1, count)))
         sendNextHistoryCommand()
     }
@@ -364,6 +368,15 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         let quietUntil = followUpsDone ? scheduler.now
             : slcEstablishedAt.map { $0.addingTimeInterval(timeouts.historyQuietPeriod) } ?? scheduler.now
         if scheduler.now < quietUntil || tracker.pendingCount > 0 {
+            // A command that never gets an answer keeps the link from looking idle: give up the queued lists
+            // after the quiet period plus one command time, instead of waiting forever (IOBluetooth's safety
+            // gate is never bypassed).
+            if let since = historyWaitingSince,
+               scheduler.now.timeIntervalSince(since) >= timeouts.historyQuietPeriod + timeouts.historyCommand {
+                log.log(.warning, "link never became idle for the call list read; giving up")
+                historyUnanswered()
+                return
+            }
             // Check again soon: the follow-ups may be answered long before the quiet period ends.
             let delay = timeouts.historyRetry
             historyRetryTask = scheduler.schedule(after: delay) { [weak self] in
@@ -375,6 +388,7 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
             return
         }
         let next = historyQueue.removeFirst()
+        historyWaitingSince = nil
         historyStep = (next.list, next.count, false)
         sendHistoryCommand("AT+CPBS=\"\(next.list.rawValue)\"")
     }
@@ -397,26 +411,42 @@ public final class AppleHFPTransport: HFPTransport, ATWriteSink {
         historyTimeoutTask = nil
         guard let step = historyStep else { return }
         log.log(.warning, "no answer to the call list read (\(step.list.rawValue)) within \(timeouts.historyCommand) s; giving up")
-        let lists = [step.list] + historyQueue.map(\.list)
+        historyUnanswered()
+    }
+
+    /// The current and all queued lists got no answer (timeout, discarded or not sent). Not a refusal:
+    /// that needs an explicit error from the phone.
+    private func historyUnanswered() {
+        historyTimeoutTask?.cancel()
+        historyTimeoutTask = nil
+        historyRetryTask?.cancel()
+        historyRetryTask = nil
+        let lists = (historyStep.map { [$0.list] } ?? []) + historyQueue.map(\.list)
         historyStep = nil
         historyQueue.removeAll()
+        historyWaitingSince = nil
         for list in lists { emit(.callHistoryUnanswered(list)) }
     }
 
-    /// The phone answered the current call list command (nil = failed, discarded or not sent).
+    /// The phone answered the current call list command (nil = discarded or not sent: unanswered).
     private func historyExchangeEnded(_ exchange: ATExchange?) {
         guard let step = historyStep else { return }
+        guard let exchange else {
+            historyUnanswered()
+            return
+        }
         // A late answer to an earlier, given-up command does not belong to this step.
-        if let exchange, exchange.command != (step.reading ? .readPhonebook : .selectPhonebook) { return }
+        if exchange.command != (step.reading ? .readPhonebook : .selectPhonebook) { return }
         historyTimeoutTask?.cancel()
         historyTimeoutTask = nil
-        if let exchange, exchange.result.isSuccess, !step.reading {
+        if exchange.result.isSuccess, !step.reading {
             historyStep = (step.list, step.count, true)
             sendHistoryCommand("AT+CPBR=1,\(step.count)")
             return
         }
         historyStep = nil
-        let entries = exchange.flatMap { $0.result.isSuccess ? $0.responses.compactMap(ATParser.parseCPBR) : nil }
+        // An explicit error is a refusal (no access to the call history); success carries the entries.
+        let entries = exchange.result.isSuccess ? exchange.responses.compactMap(ATParser.parseCPBR) : nil
         emit(.callHistory(step.list, entries))
         sendNextHistoryCommand()
     }
