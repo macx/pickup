@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1](https://github.com/macx/pickup/compare/v0.2.0...v0.2.1) (2026-10-30)
+
+### Features
+
+* recent calls, call waiting and hold, welcome window and more ([#7](https://github.com/macx/pickup/issues/7)) ([3e90c3c](https://github.com/macx/pickup/commit/3e90c3c38b0f13a5a81f83b361808896eed6d141))
+
 ## [0.2.0](https://github.com/macx/pickup/compare/v0.1.0...v0.2.0) (2026-10-23)
 
 ### Features
